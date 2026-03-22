@@ -17,6 +17,7 @@ import { TooltipModal } from "@/components/plush-tooltip";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { GradientAvatar, PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
+import { trpc } from "@/lib/trpc";
 
 // ─── Brand colours ───────────────────────────────────────────────
 const ROSE_GOLD = "#B76E79";
@@ -25,7 +26,6 @@ const CREAM = "#FAF5EF";
 const BLUSH_PINK = "#F4B8C1";
 
 // ─── Mock data ───────────────────────────────────────────────────
-const MOCK_USER_NAME = "Zainab";
 const MOCK_INCOME = 320000;
 const MOCK_SPENT = 180000;
 const MOCK_SAVED = 140000;
@@ -173,6 +173,9 @@ function FloralAccent() {
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
+  const { data: user } = trpc.auth.me.useQuery();
+  // Use first word of the user's name, fallback to a warm default
+  const displayName = user?.name?.split(" ")[0] ?? "Queen";
 
   const [todayRitual, setTodayRitual] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -238,7 +241,7 @@ export default function HomeScreen() {
                     fontWeight: "bold",
                   }}
                 >
-                  {getGreeting()}, {MOCK_USER_NAME}.{"\n"}
+                  {getGreeting()}, {displayName}.{"\n"}
                   <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, fontWeight: "normal", color: `${DEEP_PLUM}A6` }}>
                     Your vault is ready.
                   </Text>
