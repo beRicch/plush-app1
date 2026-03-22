@@ -169,14 +169,10 @@ export default function LogScreen() {
     android: {
       extension: ".m4a",
       sampleRate: 44100,
-      numberOfChannels: 1,
-      bitRate: 128000,
     },
     ios: {
       extension: ".m4a",
       sampleRate: 44100,
-      numberOfChannels: 1,
-      bitRate: 128000,
     },
     web: {},
   });

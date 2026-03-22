@@ -123,15 +123,15 @@ export default function ProfileScreen() {
           {/* ─── PROFILE HEADER ─────────────────────────────────── */}
           <View style={{ paddingHorizontal: 24, paddingTop: 16, gap: 16, alignItems: "center" }}>
             {/* FIX 8 — Branded user initials avatar (gradient) */}
-            <GradientAvatar name={user?.firstName || "Amara Okonkwo"} size={96} borderColor={ROSE_GOLD} />
+            <GradientAvatar name={user?.name || "Amara Okonkwo"} size={96} borderColor={ROSE_GOLD} />
 
             <View style={{ alignItems: "center", gap: 4 }}>
               <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 24, color: colors.foreground }}>
-                {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Amara Okonkwo"}
+                {user?.name ? user.name : "Amara Okonkwo"}
               </Text>
               {/* FIX 9 — Archetype label color (80% opacity) */}
               <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: `${DEEP_PLUM}CC` }}>
-                {user?.archetype || "The Soft Strategist"} ✨
+                {user?.moneyPersonality || "The Soft Strategist"} ✨
               </Text>
             </View>
 
