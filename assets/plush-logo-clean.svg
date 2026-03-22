@@ -1,0 +1,33 @@
+<svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Transparent background (no background) -->
+  
+  <!-- Flower Icon -->
+  <g id="flower">
+    <!-- Petals in Blush Pink and Rose Gold -->
+    <ellipse cx="500" cy="250" rx="28" ry="48" fill="#B76E79" opacity="0.9" transform="rotate(0 500 280)"/>
+    <ellipse cx="500" cy="250" rx="28" ry="48" fill="#F4B8C1" opacity="0.85" transform="rotate(60 500 280)"/>
+    <ellipse cx="500" cy="250" rx="28" ry="48" fill="#B76E79" opacity="0.9" transform="rotate(120 500 280)"/>
+    <ellipse cx="500" cy="250" rx="28" ry="48" fill="#F4B8C1" opacity="0.85" transform="rotate(180 500 280)"/>
+    <ellipse cx="500" cy="250" rx="28" ry="48" fill="#B76E79" opacity="0.9" transform="rotate(240 500 280)"/>
+    <ellipse cx="500" cy="250" rx="28" ry="48" fill="#F4B8C1" opacity="0.85" transform="rotate(300 500 280)"/>
+    
+    <!-- Center with radial gradient -->
+    <defs>
+      <radialGradient id="flowerCenter" cx="35%" cy="35%">
+        <stop offset="0%" style="stop-color:#FAF5EF;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#F4B8C1;stop-opacity:0.8" />
+      </radialGradient>
+    </defs>
+    <circle cx="500" cy="280" r="18" fill="url(#flowerCenter)"/>
+  </g>
+  
+  <!-- Main Text: "Plush" -->
+  <text x="300" y="380" font-family="Georgia, serif" font-size="120" font-weight="700" fill="#4A1560" text-anchor="middle" letter-spacing="-2">
+    Plush
+  </text>
+  
+  <!-- Tagline: "Soft life, secured." -->
+  <text x="300" y="445" font-family="Georgia, serif" font-size="42" fill="#B76E79" text-anchor="middle" font-style="italic" letter-spacing="1">
+    Soft life, secured.
+  </text>
+</svg>

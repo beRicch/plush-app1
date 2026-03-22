@@ -1,0 +1,68 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Dancing+Script:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Plush Brand Typography */
+  body {
+    @apply font-dm-sans text-foreground;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-playfair;
+  }
+
+  /* Accent text for motivational statements */
+  .text-accent-script {
+    @apply font-dancing-script text-accentGold;
+  }
+}
+
+@layer components {
+  /* Plush Button Styles */
+  .btn-primary {
+    @apply bg-primary text-background px-6 py-3 rounded-full font-semibold active:opacity-90 transition-opacity;
+  }
+
+  .btn-primary-outline {
+    @apply border-2 border-primary text-primary px-6 py-3 rounded-full font-semibold active:opacity-70 transition-opacity;
+  }
+
+  .btn-secondary {
+    @apply bg-accentGold text-background px-6 py-3 rounded-full font-semibold active:opacity-90 transition-opacity;
+  }
+
+  /* Plush Card Styles */
+  .card-soft {
+    @apply bg-surface rounded-2xl p-4 border border-border shadow-sm;
+  }
+
+  /* Plush Text Styles */
+  .text-headline {
+    @apply font-playfair text-4xl font-bold text-foreground;
+  }
+
+  .text-subheadline {
+    @apply font-playfair text-2xl font-semibold text-foreground;
+  }
+
+  .text-body {
+    @apply font-dm-sans text-base text-foreground;
+  }
+
+  .text-caption {
+    @apply font-dm-sans text-sm text-muted;
+  }
+
+  /* Plush Tick Icon */
+  .tick-icon {
+    @apply text-accent text-lg;
+  }
+}

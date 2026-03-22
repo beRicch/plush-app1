@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `users` ADD `phone` varchar(20);\nALTER TABLE `users` ADD `avatarUrl` text;\nALTER TABLE `users` ADD `moneyPersonality` varchar(255);\nALTER TABLE `users` ADD `monthlyIncomeRange` varchar(50);\nALTER TABLE `users` ADD `subscriptionTier` enum('free','plush_member','plush_ai','plush_society') DEFAULT 'free' NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2xP3oTskQxNepJW.root --database 4sCAPLsov4sjNzCfXgLf4b --execute ALTER TABLE `users` ADD `phone` varchar(20);\nALTER TABLE `users` ADD `avatarUrl` text;\nALTER TABLE `users` ADD `moneyPersonality` varchar(255);\nALTER TABLE `users` ADD `monthlyIncomeRange` varchar(50);\nALTER TABLE `users` ADD `subscriptionTier` enum('free','plush_member','plush_ai','plush_society') DEFAULT 'free' NOT NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 7132
+}
