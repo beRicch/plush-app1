@@ -101,6 +101,13 @@ const config: ExpoConfig = {
       },
     ],
     [
+      "expo-image-picker",
+      {
+        "photosPermission": "Allow $(PRODUCT_NAME) to access your photos.",
+        "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera."
+      }
+    ],
+    [
       "expo-splash-screen",
       {
         image: "./assets/images/splash-icon.png",

@@ -15,6 +15,15 @@ import { Toast, AnimatedPressable } from "@/components/plush-animations";
 import { EmptyState } from "@/components/plush-empty-state";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import { trpc } from "@/lib/trpc";
+import { useAudioRecorder, AudioModule, RecordingOptions } from "expo-audio";
+import { useSubscription } from "@/lib/revenuecat";
+import { useRouter } from "expo-router";
+ 
+const BLUSH_PINK = "#F4B8C1";
+const DEEP_PLUM = "#4A1560";
 
 // Mock data
 const ENTRY_MODES = [
@@ -23,7 +32,7 @@ const ENTRY_MODES = [
     icon: "📸",
     name: "Screenshot",
     description: "Snap your bank alert",
-    color: "#F5D5E3",
+    color: "#FDF2F4", // Very light blush
     tier: "ai",
   },
   {
@@ -31,7 +40,7 @@ const ENTRY_MODES = [
     icon: "🎤",
     name: "Voice Note",
     description: "Speak it naturally",
-    color: "#E8D5F5",
+    color: "#FDF2F4",
     tier: "ai",
   },
   {
@@ -39,7 +48,7 @@ const ENTRY_MODES = [
     icon: "📷",
     name: "Camera Scan",
     description: "Point at your receipt",
-    color: "#D5F0E8",
+    color: "#FDF2F4",
     tier: "ai",
   },
   {
@@ -47,7 +56,7 @@ const ENTRY_MODES = [
     icon: "✍️",
     name: "Quick Text",
     description: "Type it casually",
-    color: "#F5F0E8",
+    color: "#F9E6E9", // Slightly deeper blush for free/active
     tier: "member",
   },
 ];
@@ -88,132 +97,216 @@ const CATEGORY_ICONS: Record<string, string> = {
   Other: "📌",
 };
 
-const RECENT_ENTRIES = [
-  {
-    id: "1",
-    merchant: "Sephora",
-    amount: 12000,
-    category: "Beauty",
-    time: "2h ago",
-  },
-  {
-    id: "2",
-    merchant: "Shoprite",
-    amount: 8500,
-    category: "Food",
-    time: "4h ago",
-  },
-  {
-    id: "3",
-    merchant: "Uber",
-    amount: 3500,
-    category: "Transport",
-    time: "6h ago",
-  },
-  {
-    id: "4",
-    merchant: "Ajo Circle",
-    amount: 10000,
-    category: "Ajo",
-    time: "1d ago",
-  },
-  {
-    id: "5",
-    merchant: "MTN Airtime",
-    amount: 1000,
-    category: "Airtime",
-    time: "2d ago",
-  },
-];
+// Mock data removed - using real tRPC queries
 
 const MOCK_EXTRACTED_DATA = {
-  merchant: "Sephora Nigeria",
-  amount: 12500,
-  category: "Beauty",
+  merchant: "",
+  amount: 0,
+  category: "Other",
   date: new Date().toISOString().split("T")[0],
   type: "expense",
-  softComment: "Your skin is your crown, invest wisely 💜",
+  softComment: "Great job logging your expense! 🌸",
 };
 
 export default function LogScreen() {
   const colors = useColors();
-  const [userTier, setUserTier] = useState<"free" | "member" | "ai">("member");
+  const router = useRouter();
+  
+  // RevenueCat Hook
+  const { isPremium, loading: subLoading } = useSubscription();
+  const userTier = isPremium ? "ai" : "free"; 
+  
+  // tRPC Hooks
+  const utils = trpc.useUtils();
+  
+  const parseScreenshot = trpc.plush.aiEntry.parseScreenshot.useMutation();
+  const parseCamera = trpc.plush.aiEntry.parseCamera.useMutation();
+  const parseVoice = trpc.plush.aiEntry.parseVoice.useMutation();
+  const parseText = trpc.plush.aiEntry.parseText.useMutation();
+  const createExpense = trpc.plush.expenses.create.useMutation();
+
+  const expensesQuery = trpc.plush.expenses.list.useQuery();
+  const recentEntries = expensesQuery.data || [];
+
   const [activeMode, setActiveMode] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showUpgradeSheet, setShowUpgradeSheet] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  // #2 — Toast state
   const [showToast, setShowToast] = useState(false);
-  // #11 — Warm error messages
   const [amountError, setAmountError] = useState("");
   const [aiParseError, setAiParseError] = useState("");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
-    merchant: MOCK_EXTRACTED_DATA.merchant,
-    amount: MOCK_EXTRACTED_DATA.amount.toString(),
-    category: MOCK_EXTRACTED_DATA.category,
-    date: MOCK_EXTRACTED_DATA.date,
-    type: MOCK_EXTRACTED_DATA.type as "expense" | "income",
-    softComment: MOCK_EXTRACTED_DATA.softComment,
+    merchant: "",
+    amount: "0",
+    category: "Other",
+    date: new Date().toISOString().split("T")[0],
+    type: "expense" as "expense" | "income",
+    softComment: "",
   });
 
-  const [selectedCategory, setSelectedCategory] = useState(
-    MOCK_EXTRACTED_DATA.category
-  );
+  const [selectedCategory, setSelectedCategory] = useState("Other");
 
-  const handleModePress = (modeId: string) => {
+  const fileToBase64 = async (uri: string) => {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: "base64",
+      });
+      return base64;
+    } catch (error) {
+      console.error("Error reading file:", error);
+      throw error;
+    }
+  };
+
+  const recorder = useAudioRecorder({
+    extension: ".m4a",
+    sampleRate: 44100,
+    numberOfChannels: 1,
+    bitRate: 128000,
+    android: {
+      extension: ".m4a",
+      sampleRate: 44100,
+      numberOfChannels: 1,
+      bitRate: 128000,
+    },
+    ios: {
+      extension: ".m4a",
+      sampleRate: 44100,
+      numberOfChannels: 1,
+      bitRate: 128000,
+    },
+    web: {},
+  });
+  const [isRecording, setIsRecording] = useState(false);
+
+  const handleModePress = async (modeId: string) => {
     const mode = ENTRY_MODES.find((m) => m.id === modeId);
     if (!mode) return;
 
     // Check tier access
-    if (mode.tier === "ai" && userTier !== "ai") {
+    if (mode.tier === "ai" && !isPremium) {
       setShowUpgradeSheet(true);
       return;
     }
 
-    if (mode.tier === "member" && userTier === "free") {
+    if (mode.tier === "member" && !isPremium) {
       setShowUpgradeSheet(true);
       return;
     }
 
     setActiveMode(modeId);
-    simulateExtraction();
+
+    try {
+      if (modeId === "screenshot") {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.8,
+          base64: false, // We'll use FileSystem to be safe with large files
+        });
+
+        if (!result.canceled && result.assets[0].uri) {
+          setIsLoading(true);
+          const base64 = await fileToBase64(result.assets[0].uri);
+          const parsed = await parseScreenshot.mutateAsync({ imageBase64: base64 });
+          updateFormDataFromAI(parsed);
+        } else {
+          setActiveMode(null);
+        }
+      } else if (modeId === "voice") {
+        if (isRecording) {
+          setIsRecording(false);
+          setIsLoading(true);
+          await recorder.stop();
+          const recordingUri = recorder.uri; 
+          if (recordingUri) {
+            const base64 = await fileToBase64(recordingUri);
+            const parsed = await parseVoice.mutateAsync({ audioBase64: base64 });
+            updateFormDataFromAI(parsed);
+          }
+        } else {
+          setIsRecording(true);
+          recorder.record();
+          return; // Stay in recording state
+        }
+      } else if (modeId === "text") {
+        // For text, we'll use the manual entry's merchant field as the "Magic Input"
+        // and add a button to trigger the parse.
+        if (formData.merchant.trim().length > 5) {
+          setIsLoading(true);
+          const parsed = await parseText.mutateAsync({ text: formData.merchant });
+          updateFormDataFromAI(parsed);
+        } else {
+          setAiParseError("Type a bit more for me to parse, queen! 🌸");
+          setActiveMode(null);
+        }
+      }
+    } catch (error) {
+      console.error("AI Parse Error:", error);
+      setAiParseError("Plush couldn't read that properly. Try again? 🌸");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const simulateExtraction = async () => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsLoading(false);
+  const updateFormDataFromAI = (data: any) => {
+    setFormData({
+      merchant: data.merchant || "Manual Entry",
+      amount: (data.amount || 0).toString(),
+      category: data.category || "Other",
+      date: data.date || new Date().toISOString().split("T")[0],
+      type: data.type || "expense",
+      softComment: data.aiSoftComment || "Logged with AI ✨",
+    });
+    setSelectedCategory(data.category || "Other");
     setShowConfirmation(true);
   };
 
-  const handleConfirmEntry = () => {
-    // #11 — Validate amount with warm error
+  const handleConfirmEntry = async () => {
     if (!formData.amount || formData.amount === "0") {
       setAmountError("How much was it, love? Add an amount to log this. 🌸");
       return;
     }
-    setAmountError("");
-    setShowConfirmation(false);
-    setActiveMode(null);
-    // #2 — Show Rose Gold toast instead of Alert
-    setShowToast(true);
-    setFormData({
-      merchant: MOCK_EXTRACTED_DATA.merchant,
-      amount: MOCK_EXTRACTED_DATA.amount.toString(),
-      category: MOCK_EXTRACTED_DATA.category,
-      date: MOCK_EXTRACTED_DATA.date,
-      type: "expense",
-      softComment: MOCK_EXTRACTED_DATA.softComment,
-    });
+    
+    setIsLoading(true);
+    try {
+      await createExpense.mutateAsync({
+        amount: parseFloat(formData.amount),
+        merchant: formData.merchant,
+        category: formData.category,
+        date: formData.date,
+        type: formData.type,
+        entryMethod: activeMode || "manual",
+        notes: formData.softComment, // or a separate notes field
+      });
+      
+      setAmountError("");
+      setShowConfirmation(false);
+      setActiveMode(null);
+      setShowToast(true);
+      utils.plush.expenses.list.invalidate();
+      
+      // Reset form
+      setFormData({
+        merchant: "",
+        amount: "0",
+        category: "Other",
+        date: new Date().toISOString().split("T")[0],
+        type: "expense",
+        softComment: "",
+      });
+    } catch (error) {
+      console.error("Save Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleUpgradeTap = (tier: string) => {
-    setUserTier(tier as "free" | "member" | "ai");
+  const handleUpgradeTap = () => {
     setShowUpgradeSheet(false);
+    router.push("/onboarding/paywall?from=profile");
   };
 
   return (
@@ -250,35 +343,38 @@ export default function LogScreen() {
                 const isLocked =
                   (mode.tier === "ai" && userTier !== "ai") ||
                   (mode.tier === "member" && userTier === "free");
+                const isModeActive = activeMode === mode.id;
 
                 return (
-                  <Pressable
+                  <AnimatedPressable
                     key={mode.id}
                     onPress={() => handleModePress(mode.id)}
-                    className="flex flex-col flex-1 rounded-2xl p-3 items-center justify-center gap-1 relative"
+                    className="flex flex-col flex-1 rounded-2xl p-4 items-center justify-center gap-1 relative shadow-sm"
                     style={{
-                      backgroundColor: isLocked ? colors.border : mode.color,
-                      opacity: isLocked ? 0.6 : 1,
+                      backgroundColor: isLocked ? BLUSH_PINK : (isModeActive && mode.id === "voice" && isRecording ? "#B76E79" : mode.color),
+                      opacity: isLocked ? 0.4 : 1, // Slightly more translucent for locked look
                     }}
                   >
-                    <Text className="text-3xl">{mode.icon}</Text>
-                    <Text className="text-sm font-bold text-foreground text-center">
-                      {mode.name}
+                    <Text className="text-3xl mb-1">
+                      {mode.id === "voice" && isRecording ? "⏹️" : mode.icon}
                     </Text>
-                    <Text className="text-xs text-muted text-center">
-                      {mode.description}
+                    <Text className="text-sm font-bold text-foreground text-center">
+                      {mode.id === "voice" && isRecording ? "Recording..." : mode.name}
+                    </Text>
+                    <Text className="text-[10px] text-muted text-center leading-tight">
+                      {mode.id === "voice" && isRecording ? "Tap to stop" : mode.description}
                     </Text>
 
                     {isLocked && (
                       <View className="absolute top-2 right-2">
                         <MaterialIcons
                           name="lock"
-                          size={16}
+                          size={14}
                           color={colors.muted}
                         />
                       </View>
                     )}
-                  </Pressable>
+                  </AnimatedPressable>
                 );
               })}
             </View>
@@ -290,20 +386,20 @@ export default function LogScreen() {
                   (mode.tier === "member" && userTier === "free");
 
                 return (
-                  <Pressable
+                  <AnimatedPressable
                     key={mode.id}
                     onPress={() => handleModePress(mode.id)}
-                    className="flex flex-col flex-1 rounded-2xl p-3 items-center justify-center gap-1 relative"
+                    className="flex flex-col flex-1 rounded-2xl p-4 items-center justify-center gap-1 relative shadow-sm"
                     style={{
-                      backgroundColor: isLocked ? colors.border : mode.color,
-                      opacity: isLocked ? 0.6 : 1,
+                      backgroundColor: isLocked ? BLUSH_PINK : mode.color,
+                      opacity: isLocked ? 0.4 : 1,
                     }}
                   >
-                    <Text className="text-3xl">{mode.icon}</Text>
+                    <Text className="text-3xl mb-1">{mode.icon}</Text>
                     <Text className="text-sm font-bold text-foreground text-center">
                       {mode.name}
                     </Text>
-                    <Text className="text-xs text-muted text-center">
+                    <Text className="text-[10px] text-muted text-center leading-tight">
                       {mode.description}
                     </Text>
 
@@ -311,12 +407,12 @@ export default function LogScreen() {
                       <View className="absolute top-2 right-2">
                         <MaterialIcons
                           name="lock"
-                          size={16}
+                          size={14}
                           color={colors.muted}
                         />
                       </View>
                     )}
-                  </Pressable>
+                  </AnimatedPressable>
                 );
               })}
             </View>
@@ -337,15 +433,33 @@ export default function LogScreen() {
                 <Text className="text-sm font-semibold text-foreground mb-1">
                   Merchant
                 </Text>
-                <TextInput
-                  placeholder="e.g. Sephora"
-                  placeholderTextColor={colors.muted}
-                  value={formData.merchant}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, merchant: text })
-                  }
-                  className="bg-surface rounded-lg px-4 py-2 text-foreground"
-                />
+                <View className="flex-row items-center gap-2">
+                  <TextInput
+                    placeholder="e.g. Sephora"
+                    placeholderTextColor={colors.muted}
+                    value={formData.merchant}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, merchant: text })
+                    }
+                    className="flex-1 bg-surface rounded-lg px-4 py-2 text-foreground"
+                  />
+                  {formData.merchant.length > 5 && (
+                    <Pressable
+                      onPress={() => handleModePress("text")}
+                      disabled={isLoading}
+                      className="rounded-lg overflow-hidden flex-row items-center justify-center p-0.5"
+                    >
+                      <LinearGradient
+                        colors={PLUSH_GRADIENT}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        className="px-3 py-2 rounded-lg items-center justify-center"
+                      >
+                        <Text className="text-white font-bold text-xs">✨ Magic</Text>
+                      </LinearGradient>
+                    </Pressable>
+                  )}
+                </View>
               </View>
 
               {/* AMOUNT */}
@@ -497,14 +611,14 @@ export default function LogScreen() {
             </Text>
 
             {/* #6 — Warm empty state when no entries logged */}
-            {RECENT_ENTRIES.length === 0 ? (
+            {recentEntries.length === 0 ? (
               <EmptyState
                 illustration="✨"
                 headline="Nothing logged yet."
                 body="Your first entry takes 3 seconds. ✨"
               />
             ) : (
-              RECENT_ENTRIES.map((entry) => (
+              recentEntries.map((entry) => (
                 <View
                   key={entry.id}
                   className="flex-row items-center justify-between bg-surface rounded-lg p-3"
@@ -517,12 +631,14 @@ export default function LogScreen() {
                       <Text className="text-sm font-bold text-foreground">
                         {entry.merchant}
                       </Text>
-                      <Text className="text-xs text-muted">{entry.time}</Text>
+                      <Text className="text-xs text-muted">
+                        {new Date(entry.createdAt).toLocaleDateString()}
+                      </Text>
                     </View>
                   </View>
                   <View className="items-end">
                     <Text className="text-sm font-bold text-foreground">
-                      ₦{(entry.amount / 1000).toFixed(0)}k
+                      ₦{(entry.amount / 1000).toFixed(1)}k
                     </Text>
                     <Text className="text-xs text-muted">{entry.category}</Text>
                   </View>
@@ -723,101 +839,37 @@ export default function LogScreen() {
             </Text>
 
             <View className="gap-3 my-4">
-              {/* FREE TIER */}
-              <Pressable
-                className="rounded-2xl p-4 border-2 border-border"
-                style={{
-                  borderColor:
-                    userTier === "free" ? colors.primary : colors.border,
-                }}
-              >
-                <View className="flex-row justify-between items-start mb-2">
-                  <Text className="font-bold text-foreground">Plush Free</Text>
-                  {userTier === "free" && (
-                    <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                  )}
+              <View className="bg-primary/5 rounded-2xl p-6 border border-primary/20 items-center gap-4">
+                <Text className="text-4xl">✨</Text>
+                <View className="items-center">
+                  <Text className="text-lg font-bold text-foreground">Unlock Plush AI</Text>
+                  <Text className="text-sm text-muted text-center mt-1 px-4">
+                    Get access to Screenshot Scanning, Voice Logging, and unlimited AI analysis.
+                  </Text>
                 </View>
-                <Text className="text-xs text-muted mb-3">
-                  • Manual entry only
-                </Text>
-              </Pressable>
-
-              {/* MEMBER TIER */}
-              <Pressable
-                onPress={() => handleUpgradeTap("member")}
-                className="rounded-2xl p-4 border-2"
-                style={{
-                  backgroundColor:
-                    userTier === "member" ? colors.primary + "20" : "transparent",
-                  borderColor:
-                    userTier === "member" ? colors.primary : colors.border,
-                }}
-              >
-                <View className="flex-row justify-between items-start mb-2">
-                  <View>
-                    <Text className="font-bold text-foreground">
-                      Plush Member
-                    </Text>
-                    <Text className="text-sm font-bold text-primary">
-                      ₦1,200/month
-                    </Text>
-                  </View>
-                  {userTier === "member" && (
-                    <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                  )}
-                </View>
-                <Text className="text-xs text-muted">
-                  • Quick Text entry
-                  {"\n"}• Manual entry
-                </Text>
-              </Pressable>
-
-              {/* AI TIER */}
-              <Pressable
-                onPress={() => handleUpgradeTap("ai")}
-                className="rounded-2xl p-4 border-2"
-                style={{
-                  backgroundColor:
-                    userTier === "ai" ? colors.primary + "20" : "transparent",
-                  borderColor:
-                    userTier === "ai" ? colors.primary : colors.border,
-                }}
-              >
-                <View className="flex-row justify-between items-start mb-2">
-                  <View>
-                    <Text className="font-bold text-foreground">
-                      Plush AI ✨
-                    </Text>
-                    <Text className="text-sm font-bold text-primary">
-                      ₦3,000/month
-                    </Text>
-                  </View>
-                  {userTier === "ai" && (
-                    <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                  )}
-                </View>
-                <Text className="text-xs text-muted">
-                  • Screenshot scanning
-                  {"\n"}• Voice transcription
-                  {"\n"}• Camera receipt OCR
-                  {"\n"}• Quick Text
-                </Text>
-              </Pressable>
+                
+                <Pressable
+                  onPress={handleUpgradeTap}
+                  className="w-full rounded-2xl overflow-hidden"
+                  style={{ height: 56, borderRadius: 16 }}
+                >
+                  <LinearGradient
+                    colors={PLUSH_GRADIENT}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text className="text-white font-bold text-base">View Plans 🌸</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
             </View>
 
             <Pressable
               onPress={() => setShowUpgradeSheet(false)}
-              className="rounded-2xl"
-              style={{ height: 52, borderRadius: 16, overflow: "hidden" }}
+              className="py-3 items-center"
             >
-              <LinearGradient
-                colors={PLUSH_GRADIENT}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}
-              >
-                <Text className="text-white font-bold">Continue</Text>
-              </LinearGradient>
+              <Text className="text-muted font-medium">Maybe later</Text>
             </Pressable>
           </View>
         </View>

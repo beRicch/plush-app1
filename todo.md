@@ -113,42 +113,23 @@
 - [ ] Add payout celebration animations (Prompt 3)
 - [ ] Build transparency features (payment history, trust summary) (Prompt 3)
 
-### API Integration
-- [ ] Set up OpenAI API keys (GPT-4o Vision, Whisper, GPT-4o) (Prompt 3)
-- [ ] Create tRPC procedures for expense logging (Prompt 3)
-- [ ] Create tRPC procedures for goal management (Prompt 3)
-- [ ] Create tRPC procedures for Ajo Circle operations (Prompt 3)
-- [ ] Implement error handling and retry logic (Prompt 3)
+## Prompt 3: Gemini API Integration for AI Entry Modes
 
-### Testing & Polish
-- [ ] Test Home Dashboard data loading (Prompt 3)
-- [ ] Test all 4 AI entry modes (Prompt 3)
-- [ ] Test paywall gates on each tier (Prompt 3)
-- [ ] Test Goal creation and progress tracking (Prompt 3)
-- [ ] Test Ajo Circle creation and member management (Prompt 3)
-- [ ] Test offline mode (expenses cache) (Prompt 3)
-- [ ] Verify all animations and micro-interactions (Prompt 3)
-- [ ] Test on iOS and Android simulators (Prompt 3)
-
-
-## Prompt 3: OpenAI API Integration for AI Entry Modes
-
-### OpenAI Setup
-- [ ] Request OpenAI API key (GPT-4o Vision, Whisper, GPT-4o)
-- [ ] Add OPENAI_API_KEY to environment variables
+### Gemini Setup
+- [x] Add GEMINI_API_KEY to environment variables `[x]`
 - [ ] Set up rate limiting and error handling
-- [ ] Create utility functions for API calls
+- [ ] Create utility functions for Gemini API calls
 
 ### tRPC Procedures
-- [ ] Create parseScreenshot procedure (GPT-4o Vision)
-- [ ] Create transcribeVoice procedure (Whisper API)
-- [ ] Create parseCamera procedure (GPT-4o Vision)
-- [ ] Create parseText procedure (GPT-4o)
+- [ ] Create parseScreenshot procedure (Gemini Flash/Pro Vision)
+- [ ] Create transcribeVoice procedure (Note: Gemini supports audio directly)
+- [ ] Create parseCamera procedure (Gemini Flash/Pro Vision)
+- [ ] Create parseText procedure (Gemini Flash/Pro)
 - [ ] Add error handling and retry logic
 
 ### Screenshot Entry Mode
 - [ ] Implement photo picker integration
-- [ ] Send image to GPT-4o Vision for analysis
+- [ ] Send image to Gemini for analysis
 - [ ] Parse response for expense details (amount, merchant, category)
 - [ ] Show confirmation screen with extracted data
 - [ ] Save expense to database
@@ -156,8 +137,7 @@
 
 ### Voice Entry Mode
 - [ ] Implement audio recording UI
-- [ ] Send audio to Whisper API for transcription
-- [ ] Send transcription to GPT-4o for parsing
+- [ ] Send audio to Gemini for transcription/parsing
 - [ ] Show confirmation screen with extracted data
 - [ ] Save expense to database
 - [ ] Add loading state and error handling
@@ -165,7 +145,7 @@
 ### Camera Entry Mode
 - [ ] Implement live camera UI
 - [ ] Capture receipt/bill image
-- [ ] Send image to GPT-4o Vision for OCR
+- [ ] Send image to Gemini for analysis
 - [ ] Parse response for expense details
 - [ ] Show confirmation screen with extracted data
 - [ ] Save expense to database
@@ -173,7 +153,7 @@
 
 ### Text Entry Mode
 - [ ] Implement text input form
-- [ ] Send text to GPT-4o for parsing
+- [ ] Send text to Gemini for parsing
 - [ ] Extract expense details from natural language
 - [ ] Show confirmation screen with extracted data
 - [ ] Save expense to database

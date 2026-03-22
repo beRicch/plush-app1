@@ -9,12 +9,12 @@ export default function NotificationsScreen() {
 
   const handleRequestPermission = async () => {
     // In a real app, this would request native push notification permissions
-    // For now, navigate to signup/login
-    router.push("../auth");
+    // For now, navigate to tabs
+    router.push("../(tabs)");
   };
 
   const handleSkip = () => {
-    router.push("../auth");
+    router.push("../(tabs)");
   };
 
   return (

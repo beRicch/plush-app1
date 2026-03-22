@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/plush-empty-state";
 import { TooltipModal } from "@/components/plush-tooltip";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
+import { PlushCelebration } from "@/components/plush-celebration";
 
 // Mock data
 const MOCK_GOALS = [
@@ -74,6 +75,9 @@ export default function GoalsScreen() {
   const [goalNameError, setGoalNameError] = useState("");
   // #12 — Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  // #Milestone Celebration state
+  const [showMilestoneCelebration, setShowMilestoneCelebration] = useState(false);
+  const [milestoneData, setMilestoneData] = useState({ title: "", subtitle: "", emoji: "🎉" });
 
   // Form state
   const [goalName, setGoalName] = useState("");
@@ -101,14 +105,21 @@ export default function GoalsScreen() {
 
   const handleCreateGoal = () => {
     if (!goalName || !targetAmount || !targetDate) {
-      // #11 — Warm inline error instead of Alert.alert
       setGoalNameError("Give your goal a name first — it needs one to hold space for you.");
       return;
     }
     setGoalNameError("");
     setShowCreateFlow(false);
-    setStep(1);
-    router.replace({ pathname: "/goal-celebration", params: { goalName } });
+    // Navigate to the beautiful full-screen celebration
+    router.push({ pathname: "/goal-celebration", params: { goalName } });
+    
+    // Reset state after a short delay to avoid flickering
+    setTimeout(() => {
+      setStep(1);
+      setGoalName("");
+      setTargetAmount("");
+      setTargetDate("");
+    }, 500);
   };
 
   const handleCompleteGoal = () => {
@@ -391,7 +402,31 @@ export default function GoalsScreen() {
                 <Text className="text-foreground font-semibold">Cancel</Text>
               </Pressable>
               <Pressable
-                onPress={() => { setShowAddToGoal(false); setAddAmount(""); }}
+                onPress={() => { 
+                  const amount = parseInt(addAmount);
+                  if (!isNaN(amount) && selectedGoal) {
+                    const newCurrent = selectedGoal.current + amount;
+                    const oldPercentage = getProgressPercentage(selectedGoal.current, selectedGoal.target);
+                    const newPercentage = getProgressPercentage(newCurrent, selectedGoal.target);
+                    
+                    // Check for milestones
+                    const milestones = [25, 50, 75, 100];
+                    const hitMilestone = milestones.find(m => oldPercentage < m && newPercentage >= m);
+                    
+                    if (hitMilestone) {
+                      setMilestoneData({
+                        title: hitMilestone === 100 ? "Goal Achieved! 👑" : `${hitMilestone}% Complete! ✨`,
+                        subtitle: hitMilestone === 100 
+                          ? `You've fully funded ${selectedGoal.name}! Time to shine, sis! 🌸`
+                          : `You've reached the ${hitMilestone}% milestone for ${selectedGoal.name}. Keep that energy! 💜`,
+                        emoji: hitMilestone === 100 ? "👑" : "✨"
+                      });
+                      setShowMilestoneCelebration(true);
+                    }
+                  }
+                  setShowAddToGoal(false); 
+                  setAddAmount(""); 
+                }}
                 className="flex-1 rounded-full py-4 items-center"
                 style={{ backgroundColor: "#B76E79" }}
               >
@@ -401,6 +436,14 @@ export default function GoalsScreen() {
           </View>
         </View>
       </Modal>
+
+      <PlushCelebration 
+        visible={showMilestoneCelebration}
+        onClose={() => setShowMilestoneCelebration(false)}
+        title={milestoneData.title}
+        subtitle={milestoneData.subtitle}
+        emoji={milestoneData.emoji}
+      />
 
       {/* #12 — Delete goal confirmation bottom sheet */}
       <Modal visible={!!showDeleteConfirm} transparent animationType="slide">

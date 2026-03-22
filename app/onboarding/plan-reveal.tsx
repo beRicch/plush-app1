@@ -9,7 +9,7 @@ export default function PlanRevealScreen() {
   const router = useRouter();
 
   const handleContinue = () => {
-    router.push("./paywall");
+    router.push("../auth");
   };
 
   return (

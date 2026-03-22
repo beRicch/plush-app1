@@ -12,12 +12,14 @@ import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { cn } from "@/lib/utils";
 import { useSubscription } from "@/lib/revenuecat";
 import { PremiumGate } from "@/components/premium-gate";
 import { PlushCelebration } from "@/components/plush-celebration";
 import { PlushModal } from "@/components/plush-modal";
 import { LinearGradient } from "expo-linear-gradient";
 import { GradientAvatar, PLUSH_GRADIENT } from "@/components/plush-gradient";
+import { trpc } from "@/lib/trpc";
 
 // Brand colours
 const ROSE_GOLD = "#B76E79";
@@ -71,6 +73,13 @@ export default function AjoCircleScreen() {
   const [showDetailView, setShowDetailView] = useState<string | null>(null);
   const [showJoinFlow, setShowJoinFlow] = useState(false);
   const [step, setStep] = useState(1);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState([
+    { id: "1", sender: "Temi", message: "Who's excited for payout day? 👑", time: "9:00 AM" },
+    { id: "2", sender: "Chioma", message: "Me!! Already paid mine. ✅", time: "9:15 AM" },
+    { id: "3", sender: "Plush AI", message: "Soft Reminder: 3 members still have pending payments for Round 3. 🌸", time: "10:00 AM", isSystem: true },
+  ]);
 
   // Form state
   const [circleName, setCircleName] = useState("");
@@ -87,7 +96,31 @@ export default function AjoCircleScreen() {
     title: "",
     message: "",
   });
-  const { isPremium, loading } = useSubscription();
+  const { isPremium, loading: subLoading } = useSubscription();
+
+  // tRPC Hooks
+  const utils = trpc.useContext();
+  const { data: circles, isLoading: circlesLoading } = trpc.plush.ajo.list.useQuery();
+  const createMutation = trpc.plush.ajo.create.useMutation({
+    onSuccess: () => {
+      utils.plush.ajo.list.invalidate();
+    },
+  });
+  const joinMutation = trpc.plush.ajo.join.useMutation({
+    onSuccess: () => {
+      utils.plush.ajo.list.invalidate();
+    },
+  });
+  const contributeMutation = trpc.plush.ajo.contribute.useMutation({
+    onSuccess: () => {
+      utils.plush.ajo.details.invalidate({ circleId: showDetailView || "" });
+    },
+  });
+
+  const { data: selectedCircleDetails, isLoading: detailsLoading } = trpc.plush.ajo.details.useQuery(
+    { circleId: showDetailView || "" },
+    { enabled: !!showDetailView }
+  );
 
   const handleUnlock = () => {
     setErrorModal({
@@ -97,7 +130,7 @@ export default function AjoCircleScreen() {
     });
   };
 
-  const selectedCircle = MOCK_CIRCLES.find((c) => c.id === showDetailView);
+  const selectedCircle = circles?.find((c) => c.id === showDetailView);
 
   const handleCreateCircle = () => {
     if (!circleName || !contribution || !startDate) {
@@ -111,15 +144,34 @@ export default function AjoCircleScreen() {
     setStep(3);
   };
 
-  const handleCompleteCircle = () => {
-    setCelebrationData({
-      title: "Circle Created! 🎉",
-      subtitle: `Your Ajo Circle "${circleName}" is ready!\n\nInvite Code: SOFT42`,
-    });
-    setShowCelebration(true);
+  const handleCompleteCircle = async () => {
+    try {
+      const newCircle = await createMutation.mutateAsync({
+        name: circleName,
+        contributionAmount: parseInt(contribution),
+        frequency: frequency,
+        maxMembers: parseInt(maxMembers),
+        payoutOrder: payoutOrder,
+        totalRounds: parseInt(maxMembers),
+      });
+
+      setCelebrationData({
+        title: "Circle Created! 🎉",
+        subtitle: `Your Ajo Circle "${circleName}" is ready!\n\nInvite Code: ${newCircle.inviteCode}`,
+      });
+      setShowCelebration(true);
+      setShowCreateFlow(false);
+      setStep(1);
+    } catch (err: any) {
+      setErrorModal({
+        visible: true,
+        title: "Creation Error",
+        message: err.message || "Something went wrong, sis 🌸",
+      });
+    }
   };
 
-  const handleJoinCircle = () => {
+  const handleJoinCircle = async () => {
     if (!joinCode) {
       setErrorModal({
         visible: true,
@@ -128,11 +180,21 @@ export default function AjoCircleScreen() {
       });
       return;
     }
-    setCelebrationData({
-      title: "✨ Joined!",
-      subtitle: `You've joined the Ajo Circle!\n\nYou'll be notified when it's your turn.`,
-    });
-    setShowCelebration(true);
+    try {
+      await joinMutation.mutateAsync({ inviteCode: joinCode });
+      setCelebrationData({
+        title: "✨ Joined!",
+        subtitle: `You've joined the Ajo Circle!\n\nYou'll be notified when it's your turn.`,
+      });
+      setShowCelebration(true);
+      setShowJoinFlow(false);
+    } catch (err: any) {
+      setErrorModal({
+        visible: true,
+        title: "Join Error",
+        message: err.message || "Invalid code or circle is full, sis 🌸",
+      });
+    }
   };
 
   return (
@@ -203,7 +265,7 @@ export default function AjoCircleScreen() {
             {/* CIRCLES LIST */}
 
             {/* EMPTY STATE */}
-            {!hasCircles ? (
+            {!circlesLoading && (!circles || circles.length === 0) ? (
               <View className="px-6 items-center justify-center py-12 gap-4">
                 <Text className="text-6xl">👯</Text>
                 <Text
@@ -218,9 +280,11 @@ export default function AjoCircleScreen() {
                 <View className="flex-row gap-3 mt-4 w-full">
                   <Pressable
                     onPress={() => setShowCreateFlow(true)}
-                    className="flex-1 bg-primary rounded-lg py-4 items-center"
+                    className="flex-1 rounded-lg items-center overflow-hidden"
                   >
-                    <Text className="text-white font-bold">Create a Circle</Text>
+                    <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 w-full items-center justify-center">
+                      <Text className="text-white font-bold">Create a Circle</Text>
+                    </LinearGradient>
                   </Pressable>
                   <Pressable
                     onPress={() => setShowJoinFlow(true)}
@@ -234,7 +298,10 @@ export default function AjoCircleScreen() {
               <>
                 {/* MY CIRCLES LIST */}
                 <View className="px-6 gap-4">
-                  {MOCK_CIRCLES.map((circle) => (
+                  {circlesLoading && (
+                    <Text className="text-center text-muted py-4">Loading your circles... 🌸</Text>
+                  )}
+                  {circles?.map((circle) => (
                     <Pressable
                       key={circle.id}
                       onPress={() => setShowDetailView(circle.id)}
@@ -271,7 +338,7 @@ export default function AjoCircleScreen() {
                         <View>
                           <Text className="text-xs text-muted mb-1">Per Round</Text>
                           <Text className="text-sm font-bold text-foreground">
-                            ₦{(circle.contribution / 1000).toFixed(0)}k
+                            ₦{(circle.contributionAmount / 1000).toFixed(0)}k
                           </Text>
                         </View>
                         <View>
@@ -292,12 +359,12 @@ export default function AjoCircleScreen() {
                       <View className="gap-2 pt-2 border-t border-border">
                         <View className="flex-row justify-between items-center">
                           <Text className="text-xs text-muted">
-                            Current recipient: {circle.currentRecipient} 👑
+                            Current recipient: Round {circle.currentRound + 1} 👑
                           </Text>
                         </View>
                         <View className="flex-row justify-between items-center">
                           <Text className="text-xs text-muted">
-                            Next payment: {circle.nextPaymentDate}
+                            Status: {circle.status}
                           </Text>
                           <MaterialIcons
                             name="chevron-right"
@@ -514,9 +581,11 @@ export default function AjoCircleScreen() {
                       </Pressable>
                       <Pressable
                         onPress={() => setStep(3)}
-                        className="flex-1 bg-primary rounded-lg py-4 items-center"
+                        className="flex-1 rounded-lg items-center overflow-hidden"
                       >
-                        <Text className="text-white font-bold">Next</Text>
+                        <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 w-full items-center justify-center">
+                          <Text className="text-white font-bold">Next</Text>
+                        </LinearGradient>
                       </Pressable>
                     </View>
                   </>
@@ -596,9 +665,11 @@ export default function AjoCircleScreen() {
                       </Pressable>
                       <Pressable
                         onPress={handleCompleteCircle}
-                        className="flex-1 bg-primary rounded-lg py-4 items-center"
+                        className="flex-1 rounded-lg items-center overflow-hidden"
                       >
-                        <Text className="text-white font-bold">Launch Circle</Text>
+                        <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 w-full items-center justify-center">
+                          <Text className="text-white font-bold">Launch Circle</Text>
+                        </LinearGradient>
                       </Pressable>
                     </View>
                   </>
@@ -644,9 +715,11 @@ export default function AjoCircleScreen() {
                 </Pressable>
                 <Pressable
                   onPress={handleJoinCircle}
-                  className="flex-1 bg-primary rounded-lg py-4 items-center"
+                  className="flex-1 rounded-lg items-center overflow-hidden"
                 >
-                  <Text className="text-white font-bold">Join Circle</Text>
+                  <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 w-full items-center justify-center">
+                    <Text className="text-white font-bold">Join Circle</Text>
+                  </LinearGradient>
                 </Pressable>
               </View>
             </View>
@@ -671,13 +744,21 @@ export default function AjoCircleScreen() {
                       >
                         {selectedCircle.name}
                       </Text>
-                      <Pressable onPress={() => setShowDetailView(null)}>
-                        <MaterialIcons name="close" size={24} color={colors.foreground} />
-                      </Pressable>
+                      <View className="flex-row gap-2">
+                        <Pressable 
+                          onPress={() => setShowChat(true)}
+                          className="w-12 h-12 bg-surface rounded-full items-center justify-center border border-border"
+                        >
+                          <MaterialIcons name="chat-bubble-outline" size={20} color={colors.primary} />
+                        </Pressable>
+                        <Pressable onPress={() => setShowDetailView(null)}>
+                          <MaterialIcons name="close" size={24} color={colors.foreground} />
+                        </Pressable>
+                      </View>
                     </View>
 
                     {/* ─── PAYOUT DAY CELEBRATION BANNER ─── */}
-                    {selectedCircle.isPayoutDay && (
+                    {selectedCircle.status === "active" && (
                       <View style={{ paddingHorizontal: 24 }}>
                         <LinearGradient
                           colors={["#6B2080", "#8B3FAF", "#7A2898"]}
@@ -719,7 +800,7 @@ export default function AjoCircleScreen() {
                               lineHeight: 34,
                             }}
                           >
-                            {selectedCircle.currentRecipient}'s turn!
+                            {selectedCircleDetails?.members[selectedCircle.currentRound]?.name || "Upcoming"}'s turn!
                           </Text>
 
                           {/* Payout amount */}
@@ -730,11 +811,9 @@ export default function AjoCircleScreen() {
                               color: "rgba(255,255,255,0.9)",
                               marginBottom: 4,
                               marginTop: 2,
-                              textDecorationLine: "line-through",
-                              textDecorationColor: "rgba(255,255,255,0.4)",
                             }}
                           >
-                            ₦{((selectedCircle.contribution * selectedCircle.members) / 1000).toFixed(0)},000
+                            ₦{((selectedCircle.contributionAmount * selectedCircle.maxMembers) / 1000).toFixed(0)},000
                           </Text>
 
                           {/* Tagline */}
@@ -758,19 +837,19 @@ export default function AjoCircleScreen() {
                         <View>
                           <Text className="text-xs text-muted mb-1">Members</Text>
                           <Text className="text-sm font-bold text-foreground">
-                            {selectedCircle.members} people
+                            {selectedCircleDetails?.members.length || 0}/{selectedCircle.maxMembers}
                           </Text>
                         </View>
                         <View>
                           <Text className="text-xs text-muted mb-1">Round</Text>
                           <Text className="text-sm font-bold text-foreground">
-                            {selectedCircle.currentRound}/{selectedCircle.totalRounds}
+                            {selectedCircle.currentRound + 1}/{selectedCircle.totalRounds}
                           </Text>
                         </View>
                         <View>
                           <Text className="text-xs text-muted mb-1">Contribution</Text>
                           <Text className="text-sm font-bold text-foreground">
-                            ₦{(selectedCircle.contribution / 1000).toFixed(0)}k
+                            ₦{(selectedCircle.contributionAmount / 1000).toFixed(0)}k
                           </Text>
                         </View>
                       </View>
@@ -784,30 +863,62 @@ export default function AjoCircleScreen() {
                       >
                         Members
                       </Text>
-                      {[
-                        { name: "Temi", status: "👑", payment: "Paid" },
-                        { name: "Chioma", status: "✅", payment: "Paid" },
-                        { name: "Zainab", status: "⏳", payment: "Pending" },
-                        { name: "Amara", status: "🔒", payment: "Future" },
-                        { name: "Ngozi", status: "🔒", payment: "Future" },
-                      ].map((member, idx) => (
-                        <View
-                          key={idx}
-                          className="flex-row justify-between items-center bg-surface rounded-lg p-3"
-                        >
-                          <View className="flex-row items-center gap-3 flex-1">
-                            {/* FIX 8 — Branded gradient avatar */}
-                            <GradientAvatar name={member.name} size={40} borderColor={ROSE_GOLD} />
-                            <View>
-                              <Text className="text-sm font-bold text-foreground">
-                                {member.name}
+                      {detailsLoading && <Text className="text-muted text-xs">Fetching sisters... 🌸</Text>}
+                      {selectedCircleDetails?.members.map((member: any) => {
+                        const hasPaid = selectedCircleDetails.contributions.some(
+                          (c: any) => c.userId === member.id && c.roundNumber === (selectedCircle as any).currentRound
+                        );
+                        return (
+                          <View
+                            key={member.id}
+                            className="flex-row justify-between items-center bg-surface rounded-lg p-3"
+                          >
+                            <View className="flex-row items-center gap-3 flex-1">
+                              <GradientAvatar name={member.name || "Sister"} size={40} borderColor={ROSE_GOLD} />
+                              <View>
+                                <Text className="text-sm font-bold text-foreground">
+                                  {member.name}
+                                </Text>
+                                <Text className="text-xs text-muted">
+                                  {hasPaid ? "Paid for this round" : "Pending payment"}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text className="text-lg">{hasPaid ? "✅" : "⏳"}</Text>
+                          </View>
+                        );
+                      })}
+                      {(!selectedCircleDetails?.members || selectedCircleDetails.members.length === 0) && !detailsLoading && (
+                        <Text className="text-muted text-center py-4 text-xs italic">Just you so far, sis! Invite the girls 🌸</Text>
+                      )}
+                    </View>
+
+                    {/* RECENT ACTIVITY / TRANSPARENCY */}
+                    <View className="px-6 gap-3">
+                      <Text
+                        className="text-lg font-bold text-foreground"
+                        style={{ fontFamily: "PlayfairDisplay_700Bold" }}
+                      >
+                        Recent Activity
+                      </Text>
+                      <View className="bg-surface rounded-lg p-4 gap-4">
+                        {selectedCircleDetails?.contributions.slice(0, 3).map((activity: any) => (
+                          <View key={activity.id} className="flex-row items-center gap-3">
+                            <View className="w-8 h-8 bg-success/10 rounded-full items-center justify-center">
+                              <Text className="text-[10px]">✅</Text>
+                            </View>
+                            <View className="flex-1">
+                              <Text className="text-xs font-bold text-foreground">
+                                Member paid ₦{(activity.amount / 1000).toFixed(0)}k
                               </Text>
-                              <Text className="text-xs text-muted">{member.payment}</Text>
+                              <Text className="text-[10px] text-muted">Round {activity.roundNumber}</Text>
                             </View>
                           </View>
-                          <Text className="text-lg">{member.status}</Text>
-                        </View>
-                      ))}
+                        ))}
+                        {(!selectedCircleDetails?.contributions || selectedCircleDetails.contributions.length === 0) && (
+                          <Text className="text-muted text-xs italic text-center">No contributions yet this round 🌸</Text>
+                        )}
+                      </View>
                     </View>
 
                     {/* CONTRIBUTION TRACKER */}
@@ -837,11 +948,26 @@ export default function AjoCircleScreen() {
                     {/* MARK AS PAID BUTTON */}
                     <View className="px-6">
                       <Pressable
+                        onPress={async () => {
+                          try {
+                            await contributeMutation.mutateAsync({
+                              circleId: selectedCircle.id,
+                              roundNumber: selectedCircle.currentRound,
+                              amount: selectedCircle.contributionAmount,
+                            });
+                            Alert.alert("Beautiful! ✨", "Your contribution has been recorded, sister.");
+                          } catch (err: any) {
+                            Alert.alert("Oops!", err.message || "Something went wrong.");
+                          }
+                        }}
+                        disabled={contributeMutation.isPending}
                         className="rounded-lg items-center overflow-hidden"
-                        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                        style={({ pressed }) => ({ opacity: pressed || contributeMutation.isPending ? 0.8 : 1 })}
                       >
                         <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 w-full items-center justify-center">
-                          <Text className="text-white font-bold">Mark as Paid</Text>
+                          <Text className="text-white font-bold">
+                            {contributeMutation.isPending ? "Blessing the circle..." : "Mark as Paid"}
+                          </Text>
                         </LinearGradient>
                       </Pressable>
                     </View>
@@ -850,6 +976,77 @@ export default function AjoCircleScreen() {
               </ScreenContainer>
             </View>
           )}
+        </Modal>
+
+        {/* CHAT MODAL */}
+        <Modal visible={showChat} transparent animationType="slide">
+          <View className="flex-1 bg-black/40 justify-end">
+            <View className="bg-background rounded-t-3xl h-[80%]">
+              {/* Chat Header */}
+              <View className="flex-row justify-between items-center p-6 border-b border-border">
+                <View className="flex-row items-center gap-3">
+                  <Text className="text-xl">🌸</Text>
+                  <View>
+                    <Text className="font-bold text-foreground">Circle Chat</Text>
+                    <Text className="text-[10px] text-success">5 members online</Text>
+                  </View>
+                </View>
+                <Pressable onPress={() => setShowChat(false)}>
+                  <MaterialIcons name="close" size={24} color={colors.foreground} />
+                </Pressable>
+              </View>
+
+              {/* Messages */}
+              <ScrollView className="flex-1 p-6 gap-4">
+                {chatHistory.map((msg) => (
+                  <View 
+                    key={msg.id} 
+                    className={cn(
+                      "max-w-[80%] rounded-2xl p-3 mb-4",
+                      msg.isSystem ? "bg-primary/10 self-center" : "bg-surface self-start"
+                    )}
+                  >
+                    {!msg.isSystem && (
+                      <Text className="text-[10px] font-bold text-primary mb-1">{msg.sender}</Text>
+                    )}
+                    <Text className={cn("text-sm", msg.isSystem ? "text-primary italic text-center text-xs" : "text-foreground")}>
+                      {msg.message}
+                    </Text>
+                    <Text className="text-[8px] text-muted mt-1 text-right">{msg.time}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+
+              {/* Input */}
+              <View className="p-6 border-t border-border flex-row gap-3 items-center">
+                <TextInput
+                  placeholder="Type a message..."
+                  placeholderTextColor={colors.muted}
+                  value={chatMessage}
+                  onChangeText={setChatMessage}
+                  className="flex-1 bg-surface rounded-full px-4 py-3 text-sm text-foreground"
+                />
+                <Pressable 
+                  onPress={() => {
+                    if (chatMessage.trim()) {
+                      setChatHistory([...chatHistory, {
+                        id: Date.now().toString(),
+                        sender: "You",
+                        message: chatMessage,
+                        time: "Now"
+                      }]);
+                      setChatMessage("");
+                    }
+                  }}
+                  className="w-12 h-12 rounded-full overflow-hidden items-center justify-center"
+                >
+                  <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="w-full h-full items-center justify-center">
+                    <MaterialIcons name="send" size={20} color="white" />
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </View>
+          </View>
         </Modal>
       </PremiumGate>
       <PlushCelebration

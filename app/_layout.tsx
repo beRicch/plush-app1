@@ -98,10 +98,6 @@ export default function RootLayout() {
             <Stack.Screen name="onboarding/paywall" />
             <Stack.Screen name="onboarding/notifications" />
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="hidden/rituals-hub" />
-            <Stack.Screen name="hidden/ajo-circle" />
-            <Stack.Screen name="hidden/plush-score" />
-            <Stack.Screen name="hidden/insights" />
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="auto" />

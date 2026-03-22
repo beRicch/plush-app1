@@ -14,9 +14,11 @@ import { useColors } from "@/hooks/use-colors";
 import { useThemeContext } from "@/lib/theme-provider";
 import { useState, useEffect, useRef } from "react";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { supabase } from "@/lib/supabase";
 import Svg, { Circle, Polyline } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { trpc } from "@/lib/trpc";
 import { GradientAvatar, GradientBadge, PLUSH_GRADIENT } from "@/components/plush-gradient";
 
 // ─── Brand colours ───────────────────────────────────────────────
@@ -76,6 +78,7 @@ function TierBadge({ tier }: { tier: string }) {
 export default function ProfileScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { data: user } = trpc.auth.me.useQuery();
   const { colorScheme, setColorScheme } = useThemeContext();
   const [showSettings, setShowSettings] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
@@ -120,15 +123,15 @@ export default function ProfileScreen() {
           {/* ─── PROFILE HEADER ─────────────────────────────────── */}
           <View style={{ paddingHorizontal: 24, paddingTop: 16, gap: 16, alignItems: "center" }}>
             {/* FIX 8 — Branded user initials avatar (gradient) */}
-            <GradientAvatar name="Amara Okonkwo" size={96} borderColor={ROSE_GOLD} />
+            <GradientAvatar name={user?.firstName || "Amara Okonkwo"} size={96} borderColor={ROSE_GOLD} />
 
             <View style={{ alignItems: "center", gap: 4 }}>
               <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 24, color: colors.foreground }}>
-                Amara Okonkwo
+                {user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "Amara Okonkwo"}
               </Text>
               {/* FIX 9 — Archetype label color (80% opacity) */}
               <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: `${DEEP_PLUM}CC` }}>
-                The Soft Strategist ✨
+                {user?.archetype || "The Soft Strategist"} ✨
               </Text>
             </View>
 
@@ -342,14 +345,26 @@ export default function ProfileScreen() {
           {/* ─── FIX 6 — LOGOUT (text-only) ─────────────────────── */}
           <View style={{ paddingHorizontal: 24, gap: 8, paddingBottom: 24 }}>
             <Pressable
-              onPress={() => Alert.alert("Logged out", "You've been logged out successfully")}
+              onPress={() => {
+                Alert.alert("Logout", "Are you sure you want to logout?", [
+                  { text: "Cancel", style: "cancel" },
+                  { 
+                    text: "Logout", 
+                    style: "destructive",
+                    onPress: async () => {
+                      await supabase.auth.signOut();
+                      router.replace("/");
+                    }
+                  },
+                ]);
+              }}
               style={{ marginTop: 32, alignItems: "center" }}
             >
               <Text
                 style={{
                   fontFamily: "DMSans_400Regular",
                   fontSize: 14,
-                  color: `${DEEP_PLUM}73`, // 45% opacity
+                  color: `${DEEP_PLUM}73`, 
                 }}
               >
                 Log out
@@ -512,6 +527,29 @@ export default function ProfileScreen() {
                       {item.label}
                     </Text>
                     <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 12, color: colors.muted }}>{item.value}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* LEGAL */}
+              <View style={{ gap: 12, marginBottom: 40 }}>
+                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Legal & About</Text>
+                {[
+                  { label: "Privacy Policy" },
+                  { label: "Terms of Service" },
+                  { label: "Open Source Licenses" },
+                ].map((item, idx) => (
+                  <View
+                    key={idx}
+                    style={{
+                      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                      padding: 12, borderRadius: 12, backgroundColor: colors.surface,
+                    }}
+                  >
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
+                      {item.label}
+                    </Text>
+                    <MaterialIcons name="chevron-right" size={18} color={`${DEEP_PLUM}59`} />
                   </View>
                 ))}
               </View>

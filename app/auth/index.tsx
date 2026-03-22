@@ -23,12 +23,40 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleContinue = async () => {
-    // Mock authentication for testing
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name: firstName,
+              phone: phone,
+            },
+          },
+        });
+        if (error) throw error;
+        Alert.alert("Success", "Check your email for the confirmation link!");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+      }
+      
+      router.replace("/onboarding/paywall");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "An error occurred");
+    } finally {
       setLoading(false);
-      router.replace("../(tabs)");
-    }, 1000);
+    }
   };
 
   const TRUST_STATEMENTS = [

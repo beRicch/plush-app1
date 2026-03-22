@@ -292,14 +292,14 @@ export default function HomeScreen() {
             }}
           >
             <LinearGradient
-              colors={["#4A1560", "#6B2080", "#8B2FA0", "#6A1B7A"]}
+              colors={["#4A1560", "#7D2DA0", "#B76E79"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                borderRadius: 16,
+                borderRadius: 24,
                 overflow: "hidden",
                 borderWidth: 1,
-                borderColor: `${ROSE_GOLD}30`,
+                borderColor: "rgba(255,255,255,0.2)",
               }}
             >
               <View style={{ padding: 24, paddingBottom: 24 }}>

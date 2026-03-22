@@ -11,7 +11,7 @@ import {
   parseTextExpense,
   generateAIObservations,
   askPlushAI,
-} from "./api/openai.js";
+} from "./api/gemini.js";
 import {
   checkSubscription,
   restorePurchases,
@@ -39,6 +39,11 @@ import {
   calculatePlushScore,
   getSpendingByCategory,
   getMonthlySavingsRate,
+  createAjoCircle,
+  joinAjoCircle,
+  getAjoCircles,
+  getAjoCircleDetails,
+  recordAjoContribution,
 } from "./api/db-operations.js";
 
 export const plushRouter = router({
@@ -300,6 +305,62 @@ export const plushRouter = router({
           throw new Error("Feature not available on your plan");
         }
         return askPlushAI(input.question);
+      }),
+  }),
+  
+  // ===== AJO CIRCLES =====
+  ajo: router({
+    create: publicProcedure
+      .input(
+        z.object({
+          name: z.string(),
+          contributionAmount: z.number(),
+          frequency: z.string(),
+          maxMembers: z.number(),
+          payoutOrder: z.string(),
+          totalRounds: z.number(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return createAjoCircle({
+          creatorId: ctx.user.id,
+          ...input,
+        });
+      }),
+
+    list: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) throw new Error("Unauthorized");
+      return getAjoCircles(ctx.user.id);
+    }),
+
+    join: publicProcedure
+      .input(z.object({ inviteCode: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return joinAjoCircle(ctx.user.id, input.inviteCode);
+      }),
+
+    details: publicProcedure
+      .input(z.object({ circleId: z.string() }))
+      .query(async ({ input }) => {
+        return getAjoCircleDetails(input.circleId);
+      }),
+
+    contribute: publicProcedure
+      .input(
+        z.object({
+          circleId: z.string(),
+          roundNumber: z.number(),
+          amount: z.number(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return recordAjoContribution({
+          userId: ctx.user.id,
+          ...input,
+        });
       }),
   }),
 

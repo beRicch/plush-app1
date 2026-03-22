@@ -6,20 +6,52 @@ import { Alert } from "react-native";
 import { cn } from "@/lib/utils";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
+import Purchases from 'react-native-purchases';
+import { useSubscription } from "@/lib/revenuecat";
 
 export default function PaywallScreen() {
   const router = useRouter();
   const { from } = useLocalSearchParams();
   const [selectedPlan, setSelectedPlan] = useState<"annual" | "monthly">("annual");
 
-  const handleSubscribe = () => {
-    // In a real app, this would integrate RevenueCat
-    if (from === "profile") {
-      Alert.alert("Success!", "You've been upgraded to Plush AI! ✨");
-      // Take back to profile, not onboarding flow
-      router.back();
-    } else {
-      router.push("./notifications");
+  const { isPremium, loading, offerings } = useSubscription();
+  const [purchasing, setPurchasing] = useState(false);
+
+  const handleSubscribe = async () => {
+    if (!offerings) {
+      setPurchasing(true);
+      // Wait a bit or show a non-blocking toast? 
+      // For now, let's just wait and hope it loads.
+      setTimeout(() => setPurchasing(false), 2000);
+      return;
+    }
+
+    setPurchasing(true);
+    try {
+      // Find the package based on selection
+      const packageToBuy = selectedPlan === "annual" 
+        ? offerings.annual 
+        : offerings.monthly;
+
+      if (!packageToBuy) {
+        throw new Error("Plan not found in store");
+      }
+
+      await Purchases.purchasePackage(packageToBuy);
+      
+      Alert.alert("Welcome to Plush AI! ✨", "Your subscription is now active. Enjoy the soft life.");
+      
+      if (from === "profile") {
+        router.back();
+      } else {
+        router.push("./notifications");
+      }
+    } catch (e: any) {
+      if (!e.userCancelled) {
+        Alert.alert("Error", e.message || "Failed to complete purchase. Please try again.");
+      }
+    } finally {
+      setPurchasing(false);
     }
   };
 
@@ -147,7 +179,7 @@ export default function PaywallScreen() {
             >
               <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 px-6 items-center w-full justify-center">
                 <Text className="text-background font-dm-sans font-semibold text-base tracking-wide">
-                  Start your 3-day free trial 🌸
+                  {purchasing || !offerings ? "Initializing... 🌸" : "Start your 3-day free trial 🌸"}
                 </Text>
               </LinearGradient>
             </Pressable>
