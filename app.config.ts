@@ -63,6 +63,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
+    icon: "./assets/images/icon-new.png",
     "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -72,7 +73,7 @@ const config: ExpoConfig = {
       backgroundColor: "#F5F1ED",
       foregroundImage: "./assets/images/icon-new.png",
       backgroundImage: "./assets/images/android-icon-background.png",
-      monochromeImage: "./assets/images/android-icon-monochrome.png",
+      monochromeImage: "./assets/images/icon-new.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,

@@ -12,7 +12,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,6 +21,7 @@ import * as SecureStore from "expo-secure-store";
 import { startOAuthLogin, APP_ID, OAUTH_PORTAL_URL } from "@/constants/oauth";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
 import { trpc } from "@/lib/trpc";
+import { HAS_COMPLETED_ONBOARDING_KEY } from "@/constants/oauth";
 
 const ACCOUNTS_KEY = "plush_local_accounts";
 
@@ -103,6 +104,18 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isReturningUser, setIsReturningUser] = useState(false);
+
+  useEffect(() => {
+    // Initial check for returning user status
+    AsyncStorage.getItem(HAS_COMPLETED_ONBOARDING_KEY).then((val) => {
+      if (val === "true") {
+        setIsReturningUser(true);
+        setIsSignUp(false);
+        setShowTrustPopup(false);
+      }
+    });
+  }, []);
   
   const profileUpdate = trpc.plush.profile.update.useMutation();
 
@@ -227,7 +240,11 @@ export default function AuthScreen() {
         console.warn("Failed to sync onboarding data", e);
       }
 
-      router.push("/onboarding/paywall");
+      if (isReturningUser) {
+        router.push("/(tabs)");
+      } else {
+        router.push("/onboarding/paywall");
+      }
     } catch (error: any) {
       setAuthError(error?.message || "Something went wrong.");
     } finally {
@@ -434,13 +451,16 @@ export default function AuthScreen() {
                   <ActivityIndicator color="white" />
                 </View>
               ) : (
-                <View
-                  style={{ height: 56, width: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#4A1560', borderRadius: 16 }}
+                <LinearGradient
+                  colors={PLUSH_GRADIENT}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ height: 56, width: '100%', alignItems: 'center', justifyContent: 'center', borderRadius: 16 }}
                 >
                   <Text style={{ color: '#FFFFFF', fontFamily: "DMSans_500Medium", fontWeight: '600', fontSize: 16 }}>
                     {isSignUp ? "Create My Account 🌸" : "Log In 🌸"}
                   </Text>
-                </View>
+                </LinearGradient>
               )}
             </Pressable>
 

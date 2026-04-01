@@ -20,6 +20,7 @@ import { PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
 import { PlushCelebration } from "@/components/plush-celebration";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
+import { PlushBottomSheet } from "@/components/plush-bottom-sheet";
 
 interface Goal {
   id: string;
@@ -253,24 +254,69 @@ export default function GoalsScreen() {
   );
 
   useEffect(() => {
-    if (dbGoals) {
-      // Map DB goals to frontend Goal interface if needed
-      const mappedGoals: Goal[] = dbGoals.map((g: any) => ({
-        id: g.id,
-        name: g.name,
-        target: g.targetAmount,
-        current: g.currentAmount,
-        targetDate: g.targetDate,
-        monthlyContribution: 0, // Not in schema yet, but can be added if needed
-        motivation: g.motivationNote || "",
-        coverColor: g.coverTheme || COVER_VIBES[0].color,
-      }));
+    const loadAndMergeGoals = async () => {
+      let mappedGoals: Goal[] = [];
+      
+      if (dbGoals) {
+        mappedGoals = dbGoals.map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          target: g.targetAmount,
+          current: g.currentAmount,
+          targetDate: g.targetDate,
+          monthlyContribution: 0,
+          motivation: g.motivationNote || "",
+          coverColor: g.coverTheme || COVER_VIBES[0].color,
+        }));
+      }
+
+      // Merge onboarding goal if it exists and hasn't been migrated
+      try {
+        const rawOnboarding = await AsyncStorage.getItem("plush_pending_onboarding");
+        if (rawOnboarding) {
+          const onboardingData = JSON.parse(rawOnboarding);
+          if (onboardingData.targetGoalValue) {
+            const onboardingGoalId = `onboarding_${user?.id || 'guest'}`;
+            const alreadyMigrated = mappedGoals.some(g => g.name === "My Onboarding Goal" || g.target === Number(onboardingData.targetGoalValue));
+            
+            if (!alreadyMigrated) {
+              const onboardingGoal: Goal = {
+                id: onboardingGoalId,
+                name: "Target Goal 🌸",
+                target: Number(onboardingData.targetGoalValue),
+                current: 0,
+                targetDate: new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString().slice(0, 10),
+                monthlyContribution: 0,
+                motivation: "Goal set during your onboarding quiz! ✨",
+                coverColor: COVER_VIBES[1].color,
+              };
+              mappedGoals.unshift(onboardingGoal);
+
+              // Auto-persist if logged in and not already in DB
+              if (user && !loadingGoalsDb && dbGoals && dbGoals.length === 0) {
+                createGoalMutation.mutate({
+                  name: onboardingGoal.name,
+                  targetAmount: onboardingGoal.target,
+                  targetDate: onboardingGoal.targetDate,
+                  motivation: onboardingGoal.motivation,
+                  coverColor: onboardingGoal.coverColor,
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to merge onboarding goal", e);
+      }
+
       setGoals(mappedGoals);
-      setLoadingGoals(false);
-    } else if (!loadingGoalsDb) {
-      setLoadingGoals(false);
-    }
-  }, [dbGoals, loadingGoalsDb]);
+      if (!loadingGoalsDb) {
+        setLoadingGoals(false);
+      }
+    };
+
+    loadAndMergeGoals();
+  }, [dbGoals, loadingGoalsDb, user]);
 
   useEffect(() => {
     const loadQuizData = async () => {
@@ -549,15 +595,7 @@ export default function GoalsScreen() {
       )}
 
       {/* #8 — Add to Goal bottom sheet */}
-      <Modal visible={showAddToGoal} transparent animationType="slide">
-        <View className="flex-1 bg-black/40 justify-end">
-          <View
-            className="rounded-t-3xl p-6 gap-4"
-            style={{ backgroundColor: colors.background }}
-          >
-            <View className="items-center mb-2">
-              <View className="w-12 h-1 bg-border rounded-full" />
-            </View>
+      <PlushBottomSheet visible={showAddToGoal} onClose={() => { setShowAddToGoal(false); setAddAmount(""); }}>
             <Text
               className="text-xl font-bold text-foreground"
               style={{ fontFamily: "PlayfairDisplay_700Bold" }}
@@ -630,20 +668,9 @@ export default function GoalsScreen() {
                 <Text className="font-bold" style={{ color: "#FAF5EF" }}>Add 🌸</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
-      </Modal>
+      </PlushBottomSheet>
 
-      <Modal visible={showDatePicker} transparent animationType="slide">
-        <View className="flex-1 bg-black/50 justify-end">
-          <View
-            className="bg-background rounded-t-3xl p-6 gap-4 max-h-[90%]"
-            style={{ backgroundColor: colors.background }}
-          >
-            <View className="items-center mb-2">
-              <View className="w-12 h-1 bg-border rounded-full" />
-            </View>
-
+      <PlushBottomSheet visible={showDatePicker} onClose={() => setShowDatePicker(false)}>
             <View>
               <View className="flex-row items-center justify-between mb-4">
                 <Pressable onPress={() => goToMonth(-1)} className="px-3 py-2 rounded-full border border-border">
@@ -720,9 +747,7 @@ export default function GoalsScreen() {
                 </LinearGradient>
               </Pressable>
             </View>
-          </View>
-        </View>
-      </Modal>
+      </PlushBottomSheet>
 
       <PlushCelebration 
         visible={showMilestoneCelebration}
@@ -733,15 +758,7 @@ export default function GoalsScreen() {
       />
 
       {/* #12 — Delete goal confirmation bottom sheet */}
-      <Modal visible={!!showDeleteConfirm} transparent animationType="slide">
-        <View className="flex-1 bg-black/40 justify-end">
-          <View
-            className="rounded-t-3xl p-6 gap-4"
-            style={{ backgroundColor: colors.background }}
-          >
-            <View className="items-center mb-2">
-              <View className="w-12 h-1 bg-border rounded-full" />
-            </View>
+      <PlushBottomSheet visible={!!showDeleteConfirm} onClose={() => setShowDeleteConfirm(null)}>
             <Text
               className="text-xl font-bold text-foreground"
               style={{ fontFamily: "PlayfairDisplay_700Bold" }}
@@ -772,21 +789,10 @@ export default function GoalsScreen() {
                 <Text className="font-semibold text-muted">Delete</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
-      </Modal>
+      </PlushBottomSheet>
 
       {/* CREATE GOAL FLOW - BOTTOM SHEET */}
-      <Modal visible={showCreateFlow} transparent animationType="slide">
-        <View className="flex-1 bg-black/50 justify-end">
-          <View
-            className="bg-background rounded-t-3xl p-6 gap-4 max-h-[90%]"
-            style={{ backgroundColor: colors.background }}
-          >
-            <View className="items-center mb-2">
-              <View className="w-12 h-1 bg-border rounded-full" />
-            </View>
-
+      <PlushBottomSheet visible={showCreateFlow} onClose={() => setShowCreateFlow(false)}>
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* STEP 1: NAME YOUR GOAL */}
               {step === 1 && (
@@ -1072,15 +1078,12 @@ export default function GoalsScreen() {
                 </View>
               )}
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </PlushBottomSheet>
 
       {/* GOAL DETAIL MODAL */}
-      <Modal visible={!!showDetailView} transparent animationType="slide">
+      <PlushBottomSheet visible={!!showDetailView} onClose={() => setShowDetailView(null)}>
         {selectedGoal && (
-          <View className="flex-1 bg-background">
-            <ScreenContainer className="bg-background">
+          <View className="bg-background">
               <ScrollView
                 contentContainerStyle={{ flexGrow: 1 }}
                 showsVerticalScrollIndicator={false}
@@ -1231,10 +1234,9 @@ export default function GoalsScreen() {
                   </View>
                 </View>
               </ScrollView>
-            </ScreenContainer>
           </View>
         )}
-      </Modal>
+      </PlushBottomSheet>
     </ScreenContainer>
   );
 }

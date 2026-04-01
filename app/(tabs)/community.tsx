@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/plush-empty-state";
 import { TooltipModal } from "@/components/plush-tooltip";
 import { LinearGradient } from "expo-linear-gradient";
 import { GradientAvatar, GradientBadge, PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
+import { PlushBottomSheet } from "@/components/plush-bottom-sheet";
 
 const ROSE_GOLD = "#B76E79";
 const DEEP_PLUM = "#4A1560";
@@ -616,134 +617,164 @@ export default function CommunityScreen() {
         <MaterialIcons name="add" size={22} color="white" />
       </Pressable>
 
-      {/* POST COMPOSER MODAL */}
-      <Modal visible={showComposer} transparent animationType="slide">
-        <ScreenContainer className="bg-background">
-          <View className="flex-1 gap-4 px-6 pt-6">
-            {/* HEADER */}
-            <View className="flex-row justify-between items-center">
-              <Text className="font-bold text-foreground" style={{ fontSize: 13 }}>Share Your Win</Text>
-              <Pressable onPress={() => setShowComposer(false)}>
-                <MaterialIcons name="close" size={24} color={colors.foreground} />
-              </Pressable>
-            </View>
+      {/* POST COMPOSER BOTTOM SHEET */}
+      <PlushBottomSheet visible={showComposer} onClose={() => setShowComposer(false)}>
+        <View style={{ gap: 16, paddingBottom: 24 }}>
+          {/* HEADER */}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: colors.foreground }}>Share Your Win</Text>
+          </View>
 
-            {/* TEXT AREA */}
-            <TextInput
-              placeholder="Share your win, sis... 🌸"
-              placeholderTextColor={colors.muted}
-              value={postText}
-              onChangeText={setPostText}
-              className="bg-surface rounded-lg px-4 py-4 text-foreground flex-1"
-              multiline
-              maxLength={280}
-            />
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={{ gap: 16 }}>
+              {/* TEXT AREA */}
+              <TextInput
+                placeholder="Share your win, sis... 🌸"
+                placeholderTextColor={colors.muted}
+                value={postText}
+                onChangeText={setPostText}
+                style={{
+                  backgroundColor: colors.surface,
+                  borderRadius: 16,
+                  padding: 16,
+                  color: colors.foreground,
+                  minHeight: 120,
+                  textAlignVertical: "top",
+                  fontFamily: "DMSans_400Regular",
+                }}
+                multiline
+                maxLength={280}
+              />
 
-            {/* ATTACHMENT OPTIONS */}
-            <View className="gap-2">
-              <Text className="text-xs text-muted font-semibold">Attach:</Text>
-              <View className="flex-row gap-2">
-                {[
-                  { id: "goal", label: "Goal Progress", icon: "flag" },
-                  { id: "savings", label: "Savings Milestone", icon: "trending-up" },
-                  { id: "ritual", label: "Ritual Completion", icon: "check-circle" },
-                  { id: "badge", label: "Vault Score", icon: "star" },
-                ].map((option) => (
-                  <Pressable
-                    key={option.id}
-                    onPress={() => setSelectedAttachment(option.id)}
-                    className="flex-1 rounded-lg p-3 items-center gap-1"
-                    style={{
-                      backgroundColor:
-                        selectedAttachment === option.id ? colors.primary + "30" : colors.surface,
-                      borderWidth: 1.5,
-                      borderColor: selectedAttachment === option.id ? colors.primary : colors.border,
-                    }}
-                  >
-                    <MaterialIcons
-                      name={option.icon as any}
-                      size={16}
-                      color={
-                        selectedAttachment === option.id ? colors.primary : colors.muted
-                      }
-                    />
-                    <Text
-                      className="text-xs font-semibold text-center"
+              {/* ATTACHMENT OPTIONS */}
+              <View style={{ gap: 12 }}>
+                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: colors.muted }}>Attach:</Text>
+                <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                  {[
+                    { id: "goal", label: "Goal Progress", icon: "flag" },
+                    { id: "savings", label: "Savings Milestone", icon: "trending-up" },
+                    { id: "ritual", label: "Ritual Completion", icon: "check-circle" },
+                    { id: "badge", label: "Vault Score", icon: "star" },
+                  ].map((option) => (
+                    <Pressable
+                      key={option.id}
+                      onPress={() => setSelectedAttachment(option.id)}
                       style={{
-                        color:
-                          selectedAttachment === option.id ? colors.primary : colors.muted,
+                        flex: 1,
+                        minWidth: "45%",
+                        borderRadius: 12,
+                        padding: 12,
+                        alignItems: "center",
+                        gap: 4,
+                        backgroundColor: selectedAttachment === option.id ? colors.primary + "15" : colors.surface,
+                        borderWidth: 1.5,
+                        borderColor: selectedAttachment === option.id ? colors.primary : colors.border,
                       }}
                     >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <MaterialIcons
+                        name={option.icon as any}
+                        size={18}
+                        color={selectedAttachment === option.id ? colors.primary : colors.muted}
+                      />
+                      <Text
+                        style={{
+                          fontFamily: "DMSans_500Medium",
+                          fontSize: 11,
+                          color: selectedAttachment === option.id ? colors.primary : colors.muted,
+                        }}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            </View>
 
-            {/* POST TO OPTIONS */}
-            <View className="gap-2">
-              <Text className="text-xs text-muted font-semibold">Post to:</Text>
-              <View className="flex-row gap-2">
-                {["All Vaults", "Ritual Wins", "Naira Wins"].map((option) => (
-                  <Pressable
-                    key={option}
-                    className="flex-1 rounded-lg py-2 items-center border border-border"
+              {/* POST TO OPTIONS */}
+              <View style={{ gap: 12 }}>
+                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: colors.muted }}>Post to:</Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  {["All Vaults", "Ritual Wins", "Naira Wins"].map((option) => (
+                    <Pressable
+                      key={option}
+                      style={{
+                        flex: 1,
+                        borderRadius: 12,
+                        paddingVertical: 10,
+                        alignItems: "center",
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 11, color: colors.foreground }}>{option}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* ACTION BUTTONS */}
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+                <Pressable
+                  onPress={() => setShowComposer(false)}
+                  style={{
+                    flex: 1,
+                    height: 52,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1.5,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ fontFamily: "DMSans_700Bold", color: colors.foreground }}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleCreatePost}
+                  style={{ flex: 1, height: 52, borderRadius: 16, overflow: "hidden" }}
+                >
+                  <LinearGradient
+                    colors={PLUSH_GRADIENT}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
                   >
-                    <Text className="text-xs font-semibold text-foreground">{option}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            {/* ACTION BUTTONS */}
-            <View className="flex-row gap-3 pb-6">
-              <Pressable
-                onPress={() => setShowComposer(false)}
-                className="flex-1 rounded-2xl py-0 items-center justify-center border border-border"
-                style={{ height: 52, borderRadius: 16 }}
-              >
-                <Text className="text-foreground font-bold">Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleCreatePost}
-                className="flex-1 rounded-2xl py-0 items-center justify-center"
-                style={{ backgroundColor: colors.primary, height: 52, borderRadius: 16 }}
-              >
-                <Text className="text-white font-bold">Post 🌸</Text>
-              </Pressable>
-            </View>
-          </View>
-        </ScreenContainer>
-      </Modal>
-
-      {/* COMMENTS MODAL */}
-      <Modal visible={showComments} transparent animationType="slide">
-        {selectedPost && (
-          <ScreenContainer className="bg-background">
-            <View className="flex-1 gap-4 px-6 pt-6">
-              {/* HEADER */}
-              <View className="flex-row justify-between items-center">
-                <Text className="font-bold text-foreground" style={{ fontSize: 13 }}>Comments</Text>
-                <Pressable onPress={() => setShowComments(false)}>
-                  <MaterialIcons name="close" size={24} color={colors.foreground} />
+                    <Text style={{ fontFamily: "DMSans_700Bold", color: CREAM }}>Post 🌸</Text>
+                  </LinearGradient>
                 </Pressable>
               </View>
+            </View>
+          </ScrollView>
+        </View>
+      </PlushBottomSheet>
 
-              {/* ORIGINAL POST */}
-              <View
-                className="rounded-2xl p-4 gap-2 mb-4"
-                style={{ backgroundColor: colors.surface }}
-              >
-                <View className="flex-row items-center gap-2">
-                  <BrandedAvatar name={selectedPost.author} size={32} borderSize={2} />
-                  <Text className="text-xs font-bold text-foreground">{selectedPost.author}</Text>
-                </View>
-                <Text className="text-sm text-foreground">{selectedPost.content}</Text>
+      {/* COMMENTS BOTTOM SHEET */}
+      <PlushBottomSheet visible={showComments} onClose={() => setShowComments(false)}>
+        {selectedPost && (
+          <View style={{ gap: 16, paddingBottom: 24 }}>
+            {/* HEADER */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: colors.foreground }}>Comments</Text>
+            </View>
+
+            {/* ORIGINAL POST */}
+            <View
+              style={{
+                borderRadius: 16, padding: 16, gap: 8,
+                backgroundColor: colors.surface,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <BrandedAvatar name={selectedPost.author} size={32} borderSize={2} />
+                <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 13, color: colors.foreground }}>{selectedPost.author}</Text>
               </View>
+              <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground, lineHeight: 20 }}>
+                {selectedPost.content}
+              </Text>
+            </View>
 
-              {/* COMMENTS LIST */}
-              <ScrollView className="flex-1 gap-3">
+            {/* COMMENTS LIST */}
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+              <View style={{ gap: 12 }}>
                 {[
                   {
                     id: "c1",
@@ -760,33 +791,51 @@ export default function CommunityScreen() {
                 ].map((comment) => (
                   <View
                     key={comment.id}
-                    className="rounded-lg p-3 gap-2"
-                    style={{ backgroundColor: colors.surface }}
+                    style={{
+                      borderRadius: 12, padding: 12, gap: 6,
+                      backgroundColor: colors.surface,
+                    }}
                   >
-                    <View className="flex-row items-center gap-2">
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <BrandedAvatar name={comment.author} size={24} borderSize={1.5} />
-                      <Text className="text-xs font-bold text-foreground">{comment.author}</Text>
+                      <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 12, color: colors.foreground }}>{comment.author}</Text>
                     </View>
-                    <Text className="text-xs text-foreground">{comment.text}</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 12, color: colors.foreground }}>{comment.text}</Text>
                   </View>
                 ))}
-              </ScrollView>
-
-              {/* COMMENT INPUT */}
-              <View className="flex-row items-center gap-2 bg-surface rounded-lg px-4 py-3 border border-border">
-                <TextInput
-                  placeholder="Add a comment..."
-                  placeholderTextColor={colors.muted}
-                  className="flex-1 text-foreground"
-                />
-                <Pressable>
-                  <MaterialIcons name="send" size={18} color={colors.primary} />
-                </Pressable>
               </View>
+            </ScrollView>
+
+            {/* COMMENT INPUT */}
+            <View
+              style={{
+                flexDirection: "row", alignItems: "center", gap: 12,
+                backgroundColor: colors.surface,
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <TextInput
+                placeholder="Add a comment..."
+                placeholderTextColor={colors.muted}
+                style={{ flex: 1, color: colors.foreground, fontSize: 14, fontFamily: "DMSans_400Regular" }}
+              />
+              <Pressable
+                style={{
+                  width: 40, height: 40, borderRadius: 20,
+                  backgroundColor: colors.primary,
+                  alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <MaterialIcons name="send" size={18} color="white" />
+              </Pressable>
             </View>
-          </ScreenContainer>
+          </View>
         )}
-      </Modal>
+      </PlushBottomSheet>
     </ScreenContainer>
   );
 }

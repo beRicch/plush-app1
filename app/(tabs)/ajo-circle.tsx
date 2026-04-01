@@ -21,6 +21,7 @@ import { PlushModal } from "@/components/plush-modal";
 import { LinearGradient } from "expo-linear-gradient";
 import { GradientAvatar, PLUSH_GRADIENT } from "@/components/plush-gradient";
 import { trpc } from "@/lib/trpc";
+import { PlushBottomSheet } from "@/components/plush-bottom-sheet";
 import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
 
@@ -193,14 +194,35 @@ export default function AjoCircleScreen() {
       return;
     }
 
+    const contributionAmt = parseInt(contribution);
+    const maxMems = parseInt(maxMembers);
+
+    if (isNaN(contributionAmt) || contributionAmt <= 0) {
+      setErrorModal({
+        visible: true,
+        title: "Invalid Amount",
+        message: "Please enter a valid contribution amount. It must be a number greater than 0. 🌸",
+      });
+      return;
+    }
+
+    if (isNaN(maxMems) || maxMems < 2) {
+      setErrorModal({
+        visible: true,
+        title: "Invalid Members",
+        message: "A circle needs at least 2 members. 🌸",
+      });
+      return;
+    }
+
     try {
       const newCircle = await createMutation.mutateAsync({
         name: circleName,
-        contributionAmount: parseInt(contribution),
+        contributionAmount: contributionAmt,
         frequency: frequency,
-        maxMembers: parseInt(maxMembers),
+        maxMembers: maxMems,
         payoutOrder: payoutOrder,
-        totalRounds: parseInt(maxMembers),
+        totalRounds: maxMems,
       });
 
       setCelebrationData({
@@ -487,16 +509,7 @@ export default function AjoCircleScreen() {
         </ScrollView>
 
         {/* CREATE CIRCLE FLOW - BOTTOM SHEET */}
-        <Modal visible={showCreateFlow} transparent animationType="slide">
-          <View className="flex-1 bg-black/50 justify-end">
-            <View
-              className="bg-background rounded-t-3xl p-6 gap-4 max-h-[90%]"
-              style={{ backgroundColor: colors.background }}
-            >
-              <View className="items-center mb-2">
-                <View className="w-12 h-1 bg-border rounded-full" />
-              </View>
-
+        <PlushBottomSheet visible={showCreateFlow} onClose={() => setShowCreateFlow(false)}>
               <ScrollView showsVerticalScrollIndicator={false}>
                 {/* STEP 1: NAME YOUR CIRCLE */}
                 {step === 1 && (
@@ -835,111 +848,80 @@ export default function AjoCircleScreen() {
                   </>
                 )}
               </ScrollView>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal visible={showStartDatePicker} transparent animationType="slide">
-          <View className="flex-1 bg-black/50 justify-end">
-            <View
-              className="bg-background rounded-t-3xl p-6 gap-4 max-h-[90%]"
-              style={{ backgroundColor: colors.background }}
-            >
-              <View className="items-center mb-2">
-                <View className="w-12 h-1 bg-border rounded-full" />
-              </View>
-
-              <View>
-                <View className="flex-row items-center justify-between mb-4">
-                  <Pressable onPress={() => goToMonth(-1)} className="px-3 py-2 rounded-full border border-border">
-                    <MaterialIcons name="chevron-left" size={20} color={colors.foreground} />
-                  </Pressable>
-                  <Text className="font-bold text-foreground">
-                    {pickerMonth.toLocaleString("default", { month: "long" })} {pickerMonth.getFullYear()}
-                  </Text>
-                  <Pressable onPress={() => goToMonth(1)} className="px-3 py-2 rounded-full border border-border">
-                    <MaterialIcons name="chevron-right" size={20} color={colors.foreground} />
-                  </Pressable>
-                </View>
-
-                <View className="flex-row justify-between mb-2">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
-                    <Text key={label} className="text-[10px] text-muted text-center flex-1">
-                      {label}
+              {/* START DATE PICKER SECTION (previously a modal, now part of create flow or a sibling sheet) */}
+              {showStartDatePicker && (
+                <View className="mt-4 p-4 border-t border-border">
+                  <View className="flex-row items-center justify-between mb-4">
+                    <Pressable onPress={() => goToMonth(-1)} className="px-3 py-2 rounded-full border border-border">
+                      <MaterialIcons name="chevron-left" size={20} color={colors.foreground} />
+                    </Pressable>
+                    <Text className="font-bold text-foreground">
+                      {pickerMonth.toLocaleString("default", { month: "long" })} {pickerMonth.getFullYear()}
                     </Text>
-                  ))}
-                </View>
+                    <Pressable onPress={() => goToMonth(1)} className="px-3 py-2 rounded-full border border-border">
+                      <MaterialIcons name="chevron-right" size={20} color={colors.foreground} />
+                    </Pressable>
+                  </View>
 
-                <View className="flex-wrap flex-row">
-                  {getCalendarDays().map((item) => {
-                    const isSelected = item.isValid && isSameDay(item.date, selectedStartDate);
-                    return (
-                      <Pressable
-                        key={`${item.date.toISOString()}-${item.dayNumber}`}
-                        onPress={() => item.isFutureOrToday && handleStartDateSelect(item.date)}
-                        disabled={!item.isFutureOrToday}
-                        className="w-[14.28%] h-12 items-center justify-center rounded-full mb-2"
-                        style={{
-                          backgroundColor: item.isValid
-                            ? isSelected
-                              ? colors.primary
-                              : item.isFutureOrToday
-                                ? colors.surface
-                                : "transparent"
-                            : "transparent",
-                        }}
-                      >
-                        <Text
-                          className="text-xs"
+                  <View className="flex-row justify-between mb-2">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
+                      <Text key={label} className="text-[10px] text-muted text-center flex-1">
+                        {label}
+                      </Text>
+                    ))}
+                  </View>
+
+                  <View className="flex-wrap flex-row">
+                    {getCalendarDays().map((item) => {
+                      const isSelected = item.isValid && isSameDay(item.date, selectedStartDate);
+                      return (
+                        <Pressable
+                          key={`${item.date.toISOString()}-${item.dayNumber}`}
+                          onPress={() => item.isFutureOrToday && handleStartDateSelect(item.date)}
+                          disabled={!item.isFutureOrToday}
+                          className="w-[14.28%] h-12 items-center justify-center rounded-full mb-2"
                           style={{
-                            color: item.isValid
+                            backgroundColor: item.isValid
                               ? isSelected
-                                ? "white"
+                                ? colors.primary
                                 : item.isFutureOrToday
-                                  ? colors.foreground
-                                  : colors.muted
+                                  ? colors.surface
+                                  : "transparent"
                               : "transparent",
                           }}
                         >
-                          {item.isValid ? item.dayNumber : ""}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                          <Text
+                            className="text-xs"
+                            style={{
+                              color: item.isValid
+                                ? isSelected
+                                  ? "white"
+                                  : item.isFutureOrToday
+                                    ? colors.foreground
+                                    : colors.muted
+                                : "transparent",
+                            }}
+                          >
+                            {item.isValid ? item.dayNumber : ""}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Pressable
+                    onPress={() => setShowStartDatePicker(false)}
+                    className="mt-4 rounded-lg items-center overflow-hidden"
+                  >
+                    <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-3 w-full items-center justify-center">
+                      <Text className="text-white font-bold">Done</Text>
+                    </LinearGradient>
+                  </Pressable>
                 </View>
-              </View>
-
-              <View className="flex-row gap-3 mt-4">
-                <Pressable
-                  onPress={() => setShowStartDatePicker(false)}
-                  className="flex-1 border border-border rounded-lg py-4 items-center"
-                >
-                  <Text className="text-foreground font-bold">Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setShowStartDatePicker(false)}
-                  className="flex-1 rounded-lg items-center overflow-hidden"
-                >
-                  <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 w-full items-center justify-center">
-                    <Text className="text-white font-bold">Done</Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
+              )}
+          </PlushBottomSheet>
 
         {/* JOIN CIRCLE FLOW */}
-        <Modal visible={showJoinFlow} transparent animationType="slide">
-          <View className="flex-1 bg-black/50 justify-end">
-            <View
-              className="bg-background rounded-t-3xl p-6 gap-4"
-              style={{ backgroundColor: colors.background }}
-            >
-              <View className="items-center mb-2">
-                <View className="w-12 h-1 bg-border rounded-full" />
-              </View>
-
+        <PlushBottomSheet visible={showJoinFlow} onClose={() => setShowJoinFlow(false)}>
               <Text
                 className="font-bold text-foreground mb-4"
                 style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 17 }}
@@ -972,15 +954,12 @@ export default function AjoCircleScreen() {
                   </LinearGradient>
                 </Pressable>
               </View>
-            </View>
-          </View>
-        </Modal>
+        </PlushBottomSheet>
 
         {/* CIRCLE DETAIL MODAL */}
-        <Modal visible={!!showDetailView} transparent animationType="slide">
+        <PlushBottomSheet visible={!!showDetailView} onClose={() => setShowDetailView(null)}>
           {selectedCircle && (
-            <View className="flex-1 bg-background">
-              <ScreenContainer className="bg-background">
+            <View className="bg-background">
                 <ScrollView
                   contentContainerStyle={{ flexGrow: 1 }}
                   showsVerticalScrollIndicator={false}
@@ -1223,118 +1202,114 @@ export default function AjoCircleScreen() {
                     </View>
                   </View>
                 </ScrollView>
-              </ScreenContainer>
-            </View>
-          )}
-        </Modal>
+              </View>
+            )}
+          </PlushBottomSheet>
 
-        {/* CHAT MODAL */}
-        <Modal visible={showChat} transparent animationType="slide">
-          <View className="flex-1 bg-black/40 justify-end">
-            <View className="bg-background rounded-t-3xl h-[80%]">
-              {/* Chat Header */}
-              <View className="flex-row justify-between items-center p-6 border-b border-border">
-                <View className="flex-row items-center gap-3">
-                  <Text className="text-xl">🌸</Text>
-                  <View>
-                    <Text className="font-bold text-foreground">Circle Chat</Text>
-                    <Text className="text-[10px] text-success">5 members online</Text>
+          {/* CHAT MODAL */}
+          <PlushBottomSheet visible={showChat} onClose={() => setShowChat(false)} maxHeight="80%">
+                {/* Chat Header */}
+                <View className="flex-row justify-between items-center p-6 border-b border-border">
+                  <View className="flex-row items-center gap-3">
+                    <Text className="text-xl">🌸</Text>
+                    <View>
+                      <Text className="font-bold text-foreground">Circle Chat</Text>
+                      <Text className="text-[10px] text-success">5 members online</Text>
+                    </View>
                   </View>
+                  <Pressable onPress={() => setShowChat(false)}>
+                    <MaterialIcons name="close" size={24} color={colors.foreground} />
+                  </Pressable>
                 </View>
-                <Pressable onPress={() => setShowChat(false)}>
-                  <MaterialIcons name="close" size={24} color={colors.foreground} />
-                </Pressable>
-              </View>
 
-              {/* Messages */}
-              <ScrollView className="flex-1 p-6 gap-4">
-                {chatHistory.map((msg) => (
-                  <View 
-                    key={msg.id} 
-                    className={cn(
-                      "max-w-[80%] rounded-2xl p-3 mb-4",
-                      msg.isSystem ? "bg-primary/10 self-center" : "bg-surface self-start"
-                    )}
-                  >
-                    {!msg.isSystem && (
-                      <Text className="text-[10px] font-bold text-primary mb-1">{msg.sender}</Text>
-                    )}
-                    <Text className={cn("text-sm", msg.isSystem ? "text-primary italic text-center text-xs" : "text-foreground")}>
-                      {msg.message}
-                    </Text>
-                    <Text className="text-[8px] text-muted mt-1 text-right">
-                      {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
-                ))}
-              </ScrollView>
+                {/* Messages */}
+                <ScrollView className="flex-1 p-6 gap-4">
+                  {chatHistory.map((msg) => (
+                    <View 
+                      key={msg.id} 
+                      className={cn(
+                        "max-w-[80%] rounded-2xl p-3 mb-4",
+                        msg.isSystem ? "bg-primary/10 self-center" : "bg-surface self-start"
+                      )}
+                    >
+                      {!msg.isSystem && (
+                        <Text className="text-[10px] font-bold text-primary mb-1">{msg.sender}</Text>
+                      )}
+                      <Text className={cn("text-sm", msg.isSystem ? "text-primary italic text-center text-xs" : "text-foreground")}>
+                        {msg.message}
+                      </Text>
+                      <Text className="text-[8px] text-muted mt-1 text-right">
+                        {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
 
-              {/* Input */}
-              <View className="p-6 border-t border-border flex-row gap-3 items-center">
-                <TextInput
-                  placeholder="Type a message..."
-                  placeholderTextColor={colors.muted}
-                  value={chatMessage}
-                  onChangeText={setChatMessage}
-                  className="flex-1 bg-surface rounded-full px-4 py-3 text-sm text-foreground"
-                />
-                <Pressable 
-                  onPress={async () => {
-                    if (chatMessage.trim() && showDetailView) {
-                      const msg = chatMessage;
-                      setChatMessage("");
-                      try {
-                        await sendMessageMutation.mutateAsync({
-                          circleId: showDetailView,
-                          message: msg,
-                        });
-                      } catch (err) {
-                        Alert.alert("Error", "Could not send message 🌸");
+                {/* Input */}
+                <View className="p-6 border-t border-border flex-row gap-3 items-center">
+                  <TextInput
+                    placeholder="Type a message..."
+                    placeholderTextColor={colors.muted}
+                    value={chatMessage}
+                    onChangeText={setChatMessage}
+                    className="flex-1 bg-surface rounded-full px-4 py-3 text-sm text-foreground"
+                  />
+                  <Pressable 
+                    onPress={async () => {
+                      if (chatMessage.trim() && showDetailView) {
+                        const msg = chatMessage;
+                        setChatMessage("");
+                        try {
+                          await sendMessageMutation.mutateAsync({
+                            circleId: showDetailView,
+                            message: msg,
+                          });
+                        } catch (err) {
+                          Alert.alert("Error", "Could not send message 🌸");
+                        }
                       }
-                    }
-                  }}
-                  disabled={sendMessageMutation.isPending}
-                  className="w-12 h-12 rounded-full overflow-hidden items-center justify-center"
-                >
-                  <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="w-full h-full items-center justify-center">
-                    <MaterialIcons name="send" size={20} color="white" />
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      </PremiumGate>
-      <PlushCelebration
-        visible={showCelebration}
-        onClose={() => {
-          setShowCelebration(false);
-          if (showCreateFlow) {
-            setShowCreateFlow(false);
-            setStep(1);
-            setCircleName("");
-            setContribution("");
-            setFrequency("Monthly");
-            setMaxMembers("5");
-            setStartDate("");
-            setPayoutOrder("random");
-          }
-          if (showJoinFlow) {
-            setShowJoinFlow(false);
-            setJoinCode("");
-          }
-        }}
-        title={celebrationData.title}
-        subtitle={celebrationData.subtitle}
-      />
+                    }}
+                    disabled={sendMessageMutation.isPending}
+                    className="w-12 h-12 rounded-full overflow-hidden items-center justify-center"
+                  >
+                    <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="w-full h-full items-center justify-center">
+                      <MaterialIcons name="send" size={20} color="white" />
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+          </PlushBottomSheet>
+        </PremiumGate>
 
-      <PlushModal
-        visible={errorModal.visible}
-        onClose={() => setErrorModal({ ...errorModal, visible: false })}
-        title={errorModal.title}
-        message={errorModal.message}
-        type="error"
-      />
-    </ScreenContainer>
-  );
-}
+        <PlushCelebration
+          visible={showCelebration}
+          onClose={() => {
+            setShowCelebration(false);
+            if (showCreateFlow) {
+              setShowCreateFlow(false);
+              setStep(1);
+              setCircleName("");
+              setContribution("");
+              setFrequency("Monthly");
+              setMaxMembers("5");
+              setStartDate("");
+              setPayoutOrder("random");
+            }
+            if (showJoinFlow) {
+              setShowJoinFlow(false);
+              setJoinCode("");
+            }
+          }}
+          title={celebrationData.title}
+          subtitle={celebrationData.subtitle}
+        />
+
+        <PlushModal
+          visible={errorModal.visible}
+          onClose={() => setErrorModal({ ...errorModal, visible: false })}
+          title={errorModal.title}
+          message={errorModal.message}
+          type="error"
+        />
+      </ScreenContainer>
+    );
+  }

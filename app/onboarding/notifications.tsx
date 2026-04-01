@@ -1,4 +1,5 @@
 import { Text, View, Pressable, ScrollView } from "react-native";
+import { useState, useEffect } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,6 +12,14 @@ import { HAS_COMPLETED_ONBOARDING_KEY } from "@/constants/oauth";
 export default function NotificationsScreen() {
   const router = useRouter();
 
+  useEffect(() => {
+    AsyncStorage.getItem(HAS_COMPLETED_ONBOARDING_KEY).then((val) => {
+      if (val === "true") {
+        router.replace("/(tabs)");
+      }
+    });
+  }, [router]);
+
   const handleRequestPermission = async () => {
     // In a real app, this would request native push notification permissions
     try {
@@ -20,7 +29,7 @@ export default function NotificationsScreen() {
       console.error("[Notifications] Failed to set onboarding flag:", error);
     }
     // For now, navigate to tabs
-    router.push("../(tabs)");
+    router.replace("/(tabs)");
   };
 
   const handleSkip = async () => {
@@ -29,7 +38,7 @@ export default function NotificationsScreen() {
     } catch (error) {
       console.error("[Notifications] Failed to set onboarding flag:", error);
     }
-    router.push("../(tabs)");
+    router.replace("/(tabs)");
   };
 
   return (

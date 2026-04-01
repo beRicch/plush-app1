@@ -1,4 +1,5 @@
-import { View, Text, Pressable, ScrollView, Modal, Share, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, Share, Platform } from "react-native";
+import { PlushBottomSheet } from "@/components/plush-bottom-sheet";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
@@ -170,98 +171,93 @@ export default function PlushScoreScreen() {
         </View>
       </ScrollView>
 
-      {/* SHARING MODAL */}
-      <Modal visible={showShareModal} transparent animationType="slide">
-        <View className="flex-1 bg-black/60 justify-center px-6">
-          <View className="bg-white rounded-[40px] overflow-hidden">
-            <LinearGradient
-              colors={[BLUSH_PINK, CREAM]}
-              style={{ padding: 32, alignItems: 'center' }}
-            >
-              <View className="items-center mb-8">
-                <Text style={{ fontFamily: "DancingScript_400Regular", fontSize: 24, color: DEEP_PLUM }}>Plush Wellness</Text>
-                <View style={{ height: 1, width: 40, backgroundColor: DEEP_PLUM, marginVertical: 8 }} />
-              </View>
+      {/* SHARING BOTTOM SHEET */}
+      <PlushBottomSheet visible={showShareModal} onClose={() => setShowShareModal(false)}>
+        <View style={{ borderRadius: 40, overflow: "hidden", backgroundColor: "white" }}>
+          <LinearGradient
+            colors={[BLUSH_PINK, CREAM]}
+            style={{ padding: 32, alignItems: 'center' }}
+          >
+            <View style={{ alignItems: 'center', marginBottom: 32 }}>
+              <Text style={{ fontFamily: "DancingScript_400Regular", fontSize: 24, color: DEEP_PLUM }}>Plush Wellness</Text>
+              <View style={{ height: 1, width: 40, backgroundColor: DEEP_PLUM, marginVertical: 8, alignSelf: 'center' }} />
+            </View>
 
-              <View
-                className="w-32 h-32 rounded-full items-center justify-center mb-6"
+            <View
+              style={{
+                width: 128, height: 128, borderRadius: 64,
+                alignItems: 'center', justifyContent: 'center',
+                marginBottom: 24,
+                backgroundColor: '#FFFFFF',
+                borderWidth: 4,
+                borderColor: '#FFFFFF',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.1,
+                shadowRadius: 15,
+              }}
+            >
+              <Text
+                style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 60, color: DEEP_PLUM }}
+              >
+                {PLUSH_SCORE}
+              </Text>
+            </View>
+
+            <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: DEEP_PLUM, marginBottom: 8 }}>Soft Wealth Master</Text>
+            <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: DEEP_PLUM, opacity: 0.7, textAlign: 'center', marginBottom: 24 }}>
+              "Financial peace is a ritual, not a race. 🌸"
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+              {BADGES.map((badge) => (
+                <View key={badge.id} style={{ backgroundColor: 'rgba(255,255,255,0.5)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={{ fontSize: 14 }}>{badge.icon}</Text>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: DEEP_PLUM }}>{badge.title}</Text>
+                </View>
+              ))}
+            </View>
+          </LinearGradient>
+
+          <View style={{ paddingHorizontal: 24, paddingVertical: 32, flexDirection: 'row', gap: 12, backgroundColor: 'white' }}>
+            <AnimatedPressable
+              onPress={() => setShowShareModal(false)}
+              style={{
+                flex: 1,
+                height: 52,
+                borderRadius: 16,
+                borderWidth: 1.5,
+                borderColor: `${DEEP_PLUM}26`,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: 'DMSans_700Bold', color: DEEP_PLUM, opacity: 0.6 }}>Close</Text>
+            </AnimatedPressable>
+
+            <AnimatedPressable
+              onPress={handleShare}
+              style={{ flex: 1.5, borderRadius: 16, overflow: "hidden" }}
+            >
+              <LinearGradient
+                colors={PLUSH_GRADIENT}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={{
-                  backgroundColor: '#FFFFFF',
-                  borderWidth: 4,
-                  borderColor: '#FFFFFF',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 10 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 15,
+                  height: 52,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
                 }}
               >
-                <Text
-                  className="text-6xl"
-                  style={{ fontFamily: "PlayfairDisplay_700Bold", color: DEEP_PLUM }}
-                >
-                  {PLUSH_SCORE}
-                </Text>
-              </View>
-
-              <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: DEEP_PLUM, marginBottom: 8 }}>Soft Wealth Master</Text>
-              <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: DEEP_PLUM, opacity: 0.7, textAlign: 'center', marginBottom: 24 }}>
-                "Financial peace is a ritual, not a race. 🌸"
-              </Text>
-
-              <View className="flex-row gap-4 mb-4">
-                {BADGES.map((badge) => (
-                  <View key={badge.id} className="bg-white/50 px-3 py-1 rounded-full flex-row items-center gap-1">
-                    <Text className="text-sm">{badge.icon}</Text>
-                    <Text className="text-[10px] font-bold text-foreground">{badge.title}</Text>
-                  </View>
-                ))}
-              </View>
-            </LinearGradient>
-
-            <View className="px-6 py-8 flex-row gap-3 bg-white">
-              <View style={{ flex: 1 }}>
-                <AnimatedPressable
-                  onPress={() => setShowShareModal(false)}
-                  style={{
-                    height: 52,
-                    borderRadius: 16,
-                    borderWidth: 1.5,
-                    borderColor: `${DEEP_PLUM}26`, // Muted border
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100%'
-                  }}
-                >
-                  <Text style={{ fontFamily: 'DMSans_700Bold', color: DEEP_PLUM, opacity: 0.6 }}>Close</Text>
-                </AnimatedPressable>
-              </View>
-
-              <View style={{ flex: 1.5 }}>
-                <AnimatedPressable
-                  onPress={handleShare}
-                  style={{ borderRadius: 16, overflow: "hidden", width: "100%" }}
-                >
-                  <LinearGradient
-                    colors={PLUSH_GRADIENT}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      height: 52,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                    }}
-                  >
-                    <MaterialIcons name="file-download" size={20} color="#FFFFFF" />
-                    <Text style={{ fontFamily: 'DMSans_700Bold', color: '#FFFFFF' }}>Share Card</Text>
-                  </LinearGradient>
-                </AnimatedPressable>
-              </View>
-            </View>
+                <MaterialIcons name="file-download" size={20} color="#FFFFFF" />
+                <Text style={{ fontFamily: 'DMSans_700Bold', color: '#FFFFFF' }}>Share Card</Text>
+              </LinearGradient>
+            </AnimatedPressable>
           </View>
         </View>
-      </Modal>
+      </PlushBottomSheet>
     </ScreenContainer>
   );
 }

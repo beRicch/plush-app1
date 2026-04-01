@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import Svg, { Polyline } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
+import { PlushBottomSheet } from "@/components/plush-bottom-sheet";
 
 // ─── Brand colours ───────────────────────────────────────────────
 const ROSE_GOLD  = "#B76E79";
@@ -308,185 +309,154 @@ export default function RitualsScreen() {
         </View>
       </ScrollView>
 
-      {/* ─── RITUAL FLOW MODAL ──────────────────────────────────── */}
-      <Modal visible={showRitualFlow} transparent animationType="slide">
+      {/* ─── RITUAL FLOW BOTTOM SHEET ───────────────────────────── */}
+      <PlushBottomSheet visible={showRitualFlow} onClose={() => setShowRitualFlow(false)}>
         {selectedRitual && (
-          <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <ScreenContainer className="bg-background">
-              <View style={{ flex: 1 }}>
-                {/* Header */}
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, paddingTop: 24, paddingBottom: 16 }}>
-                  <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 22, color: colors.foreground, flex: 1 }}>
-                    {selectedRitual.emoji} {selectedRitual.name}
-                  </Text>
-                  <Pressable onPress={() => setShowRitualFlow(false)}>
-                    <MaterialIcons name="close" size={24} color={colors.foreground} />
-                  </Pressable>
-                </View>
+          <View style={{ gap: 16, paddingBottom: 24 }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 22, color: colors.foreground, flex: 1 }}>
+                {selectedRitual.emoji} {selectedRitual.name}
+              </Text>
+            </View>
 
-                {/* SOFT AUDIT FLOW */}
-                {selectedRitual.id === "soft-audit" && (
-                  <>
-                    {ritualStep === 1 && (
-                      <View style={{ flex: 1, paddingHorizontal: 24 }}>
-                        {/* FIX 2 — Vertically centred content + Blush Pink bg wash (simulated) */}
-                        <View
-                          style={{
-                            flex: 1,
-                            justifyContent: "center",
-                            alignItems: "center",
-                            gap: 24,
-                          }}
-                        >
-                          <Text style={{ fontSize: 48 }}>🌸</Text>
-                          <View
-                            style={{
-                              borderRadius: 20,
-                              padding: 24,
-                              backgroundColor: `${BLUSH_PINK}26`,
-                              gap: 12,
-                            }}
-                          >
-                            <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: DEEP_PLUM, textAlign: "center", lineHeight: 28 }}>
-                              Grab your favorite drink.{"\n"}Get comfortable.
-                            </Text>
-                            <Text style={{ fontFamily: "DancingScript_400Regular", fontSize: 18, color: DEEP_PLUM, textAlign: "center", fontStyle: "italic" }}>
-                              You're not in trouble. You're just checking in. 🌸
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* FIX 2 — Next pinned to bottom */}
-                        <View style={{ paddingBottom: 24 }}>
-                          <GradientPrimaryBtn label="I'm Ready" onPress={() => setRitualStep(2)} />
-                        </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
+              {/* SOFT AUDIT FLOW */}
+              {selectedRitual.id === "soft-audit" && (
+                <View style={{ gap: 20 }}>
+                  {ritualStep === 1 && (
+                    <View style={{ gap: 24, alignItems: "center", paddingVertical: 20 }}>
+                      <Text style={{ fontSize: 48 }}>🌸</Text>
+                      <View
+                        style={{
+                          borderRadius: 20,
+                          padding: 24,
+                          backgroundColor: `${BLUSH_PINK}26`,
+                          gap: 12,
+                        }}
+                      >
+                        <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: DEEP_PLUM, textAlign: "center", lineHeight: 28 }}>
+                          Grab your favorite drink.{"\n"}Get comfortable.
+                        </Text>
+                        <Text style={{ fontFamily: "DancingScript_400Regular", fontSize: 18, color: DEEP_PLUM, textAlign: "center", fontStyle: "italic" }}>
+                          You're not in trouble. You're just checking in. 🌸
+                        </Text>
                       </View>
-                    )}
+                      <View style={{ width: "100%" }}>
+                        <GradientPrimaryBtn label="I'm Ready" onPress={() => setRitualStep(2)} />
+                      </View>
+                    </View>
+                  )}
 
-                    {ritualStep === 2 && (
-                      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, gap: 16, paddingBottom: 24 }}>
-                        <View style={{ borderRadius: 16, padding: 16, gap: 12, backgroundColor: colors.surface }}>
-                          <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>
-                            This Week's Spending
-                          </Text>
-                          <View style={{ gap: 8 }}>
-                            {[
-                              { label: "Food & Dining", value: "₦8,500" },
-                              { label: "Transport",     value: "₦3,200" },
-                              { label: "Shopping",      value: "₦12,000" },
-                            ].map((row, i) => (
-                              <View key={i} style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                                <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: colors.muted }}>{row.label}</Text>
-                                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: colors.foreground }}>{row.value}</Text>
-                              </View>
-                            ))}
-                            <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
-                              <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: colors.foreground }}>Total</Text>
-                              <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: colors.foreground }}>₦23,700</Text>
+                  {ritualStep === 2 && (
+                    <View style={{ gap: 16 }}>
+                      <View style={{ borderRadius: 16, padding: 16, gap: 12, backgroundColor: colors.surface }}>
+                        <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>
+                          This Week's Spending
+                        </Text>
+                        <View style={{ gap: 8 }}>
+                          {[
+                            { label: "Food & Dining", value: "₦8,500" },
+                            { label: "Transport",     value: "₦3,200" },
+                            { label: "Shopping",      value: "₦12,000" },
+                          ].map((row, i) => (
+                            <View key={i} style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                              <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: colors.muted }}>{row.label}</Text>
+                              <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: colors.foreground }}>{row.value}</Text>
                             </View>
+                          ))}
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+                            <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: colors.foreground }}>Total</Text>
+                            <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: colors.foreground }}>₦23,700</Text>
                           </View>
-                        </View>
-                        <GradientPrimaryBtn label="Next" onPress={() => setRitualStep(3)} />
-                      </ScrollView>
-                    )}
-
-                    {ritualStep === 3 && (
-                      <View style={{ flex: 1, paddingHorizontal: 24 }}>
-                        <ScrollView contentContainerStyle={{ flexGrow: 1, gap: 16 }} showsVerticalScrollIndicator={false}>
-                          {/* FIX 2 — Blush Pink gradient wash (simulated with background tint) */}
-                          <View style={{ gap: 16 }}>
-                            {[
-                              { key: "q1", label: "What spending this week felt good and aligned?", placeholder: "e.g. My skincare routine 🧴" },
-                              { key: "q2", label: "What purchase made you wince a little?",          placeholder: "e.g. That impulse Shein haul 😅" },
-                              { key: "q3", label: "One thing I want to do differently next week:",   placeholder: "e.g. Set a daily spending limit 💪" },
-                            ].map(({ key, label, placeholder }) => (
-                              <View key={key}>
-                                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground, marginBottom: 8 }}>
-                                  {label}
-                                </Text>
-                                <TextInput
-                                  placeholder={placeholder}
-                                  placeholderTextColor={colors.muted}
-                                  value={ritualResponses[key] || ""}
-                                  onChangeText={(text) => setRitualResponses({ ...ritualResponses, [key]: text })}
-                                  onFocus={() => setFocusedInput(key)}
-                                  onBlur={() => setFocusedInput(null)}
-                                  style={inputStyle(key)}
-                                  multiline
-                                />
-                              </View>
-                            ))}
-                          </View>
-                        </ScrollView>
-
-                        {/* FIX 2 — Next pinned to bottom */}
-                        <View style={{ paddingBottom: 24, paddingTop: 12, backgroundColor: `${BLUSH_PINK}10` }}>
-                          <GradientPrimaryBtn label="Next" onPress={() => setRitualStep(4)} />
                         </View>
                       </View>
-                    )}
+                      <GradientPrimaryBtn label="Next" onPress={() => setRitualStep(3)} />
+                    </View>
+                  )}
 
-                    {ritualStep === 4 && (
-                      <View style={{ flex: 1, paddingHorizontal: 24 }}>
-                        <View style={{ flex: 1, gap: 16, justifyContent: "center" }}>
-                          <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>
-                            Set one soft intention for next week
+                  {ritualStep === 3 && (
+                    <View style={{ gap: 16 }}>
+                      {[
+                        { key: "q1", label: "What spending this week felt good and aligned?", placeholder: "e.g. My skincare routine 🧴" },
+                        { key: "q2", label: "What purchase made you wince a little?",          placeholder: "e.g. That impulse Shein haul 😅" },
+                        { key: "q3", label: "One thing I want to do differently next week:",   placeholder: "e.g. Set a daily spending limit 💪" },
+                      ].map(({ key, label, placeholder }) => (
+                        <View key={key}>
+                          <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground, marginBottom: 8 }}>
+                            {label}
                           </Text>
                           <TextInput
-                            placeholder="e.g. I will be intentional with my money 💜"
+                            placeholder={placeholder}
                             placeholderTextColor={colors.muted}
-                            value={ritualResponses.intention || ""}
-                            onChangeText={(text) => setRitualResponses({ ...ritualResponses, intention: text })}
-                            onFocus={() => setFocusedInput("intention")}
+                            value={ritualResponses[key] || ""}
+                            onChangeText={(text) => setRitualResponses({ ...ritualResponses, [key]: text })}
+                            onFocus={() => setFocusedInput(key)}
                             onBlur={() => setFocusedInput(null)}
-                            style={inputStyle("intention")}
+                            style={[inputStyle(key), { minHeight: 80 }]}
                             multiline
                           />
                         </View>
-                        <View style={{ paddingBottom: 24 }}>
-                          <GradientPrimaryBtn label="Complete Ritual" onPress={handleCompleteRitual} />
-                        </View>
-                      </View>
-                    )}
-                  </>
-                )}
+                      ))}
+                      <GradientPrimaryBtn label="Next" onPress={() => setRitualStep(4)} />
+                    </View>
+                  )}
 
-                {/* OTHER RITUALS - SIMPLIFIED FLOW */}
-                {selectedRitual.id !== "soft-audit" && (
-                  <View style={{ flex: 1, paddingHorizontal: 24 }}>
-                    <ScrollView contentContainerStyle={{ flexGrow: 1, gap: 16 }}>
-                      <View style={{ borderRadius: 20, padding: 24, gap: 12, backgroundColor: `${selectedRitual.color}20` }}>
-                        <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 15, color: colors.foreground, lineHeight: 24 }}>
-                          {selectedRitual.description}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground, marginBottom: 8 }}>
-                          Your response:
+                  {ritualStep === 4 && (
+                    <View style={{ gap: 16 }}>
+                      <View style={{ gap: 8 }}>
+                        <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>
+                          Set one soft intention for next week
                         </Text>
                         <TextInput
-                          placeholder="Type your response here..."
+                          placeholder="e.g. I will be intentional with my money 💜"
                           placeholderTextColor={colors.muted}
-                          value={ritualResponses.response || ""}
-                          onChangeText={(text) => setRitualResponses({ ...ritualResponses, response: text })}
-                          onFocus={() => setFocusedInput("response")}
+                          value={ritualResponses.intention || ""}
+                          onChangeText={(text) => setRitualResponses({ ...ritualResponses, intention: text })}
+                          onFocus={() => setFocusedInput("intention")}
                           onBlur={() => setFocusedInput(null)}
-                          style={[inputStyle("response"), { minHeight: 120 }]}
+                          style={[inputStyle("intention"), { minHeight: 100 }]}
                           multiline
-                          numberOfLines={4}
                         />
                       </View>
-                    </ScrollView>
-                    <View style={{ paddingBottom: 24 }}>
                       <GradientPrimaryBtn label="Complete Ritual" onPress={handleCompleteRitual} />
                     </View>
+                  )}
+                </View>
+              )}
+
+              {/* OTHER RITUALS - SIMPLIFIED FLOW */}
+              {selectedRitual.id !== "soft-audit" && (
+                <View style={{ gap: 16 }}>
+                  <View style={{ borderRadius: 20, padding: 24, gap: 12, backgroundColor: `${selectedRitual.color}20` }}>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 15, color: colors.foreground, lineHeight: 24 }}>
+                      {selectedRitual.description}
+                    </Text>
                   </View>
-                )}
-              </View>
-            </ScreenContainer>
+                  <View style={{ gap: 8 }}>
+                    <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>
+                      Your response:
+                    </Text>
+                    <TextInput
+                      placeholder="Type your response here..."
+                      placeholderTextColor={colors.muted}
+                      value={ritualResponses.response || ""}
+                      onChangeText={(text) => setRitualResponses({ ...ritualResponses, response: text })}
+                      onFocus={() => setFocusedInput("response")}
+                      onBlur={() => setFocusedInput(null)}
+                      style={[inputStyle("response"), { minHeight: 120 }]}
+                      multiline
+                      numberOfLines={4}
+                    />
+                  </View>
+                  <GradientPrimaryBtn label="Complete Ritual" onPress={handleCompleteRitual} />
+                </View>
+              )}
+            </ScrollView>
           </View>
         )}
-      </Modal>
+      </PlushBottomSheet>
+
     </ScreenContainer>
   );
 }

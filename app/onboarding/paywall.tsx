@@ -2,11 +2,13 @@ import { Text, View, Pressable, ScrollView, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
 import Purchases from "react-native-purchases";
 import { useSubscription } from "@/lib/revenuecat";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { HAS_COMPLETED_ONBOARDING_KEY } from "@/constants/oauth";
 
 // ─── Brand colours ───────────────────────────────────────────────
 const ROSE_GOLD = "#B76E79";
@@ -77,8 +79,23 @@ export default function PaywallScreen() {
   const router = useRouter();
   const { from } = useLocalSearchParams();
   const [selectedPlan, setSelectedPlan] = useState<PlanId>("ai");
-  const { offerings } = useSubscription();
+  const { offerings, isPremium, loading: subLoading } = useSubscription();
   const [purchasing, setPurchasing] = useState(false);
+
+  // Skip paywall if user is already a premium subscriber
+  useEffect(() => {
+    if (!subLoading && isPremium) {
+      router.replace("/onboarding/notifications");
+    }
+  }, [subLoading, isPremium, router]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(HAS_COMPLETED_ONBOARDING_KEY).then((val) => {
+      if (val === "true") {
+        router.replace("/(tabs)");
+      }
+    });
+  }, []);
 
   const plan = PLANS.find((p) => p.id === selectedPlan)!;
 

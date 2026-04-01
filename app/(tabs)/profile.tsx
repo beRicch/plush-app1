@@ -21,6 +21,7 @@ import * as Linking from "expo-linking";
 import Svg, { Circle, Polyline } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { PlushBottomSheet } from "@/components/plush-bottom-sheet";
 import { trpc } from "@/lib/trpc";
 import { GradientAvatar, GradientBadge, PLUSH_GRADIENT } from "@/components/plush-gradient";
 
@@ -429,292 +430,278 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {/* ─── SETTINGS MODAL ─────────────────────────────────────── */}
-      <Modal visible={showSettings} transparent animationType="slide">
-        <ScreenContainer className="bg-background">
-          <View style={{ flex: 1, gap: 16, paddingHorizontal: 24, paddingTop: 24 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: colors.foreground }}>Settings</Text>
-              <Pressable onPress={() => setShowSettings(false)}>
-                <MaterialIcons name="close" size={24} color={colors.foreground} />
-              </Pressable>
-            </View>
+      {/* ─── SETTINGS BOTTOM SHEET ──────────────────────────────── */}
+      <PlushBottomSheet visible={showSettings} onClose={() => setShowSettings(false)}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: colors.foreground }}>Settings</Text>
+        </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* NOTIFICATIONS */}
-              <View style={{ gap: 12, marginBottom: 24 }}>
-                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Notifications</Text>
-                {[
-                  { key: "ritualReminders",   label: "Ritual Reminders" },
-                  { key: "billAlerts",        label: "Bill Due Alerts" },
-                  { key: "communityActivity", label: "Community Activity" },
-                  { key: "ajoUpdates",        label: "Ajo Circle Updates" },
-                  { key: "weeklyReport",      label: "Weekly Vault Report" },
-                ].map((item) => (
-                  <View
-                    key={item.key}
-                    style={{
-                      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                      padding: 12, borderRadius: 12, backgroundColor: colors.surface,
-                    }}
-                  >
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
-                      {item.label}
-                    </Text>
-                    <Pressable
-                      onPress={() =>
-                        setNotificationSettings({
-                          ...notificationSettings,
-                          [item.key]: !notificationSettings[item.key as keyof typeof notificationSettings],
-                        })
-                      }
-                    >
-                      <MaterialIcons
-                        name={notificationSettings[item.key as keyof typeof notificationSettings] ? "toggle-on" : "toggle-off"}
-                        size={24}
-                        color={notificationSettings[item.key as keyof typeof notificationSettings] ? ROSE_GOLD : colors.muted}
-                      />
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-
-              {/* PRIVACY */}
-              <View style={{ gap: 12, marginBottom: 24 }}>
-                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Privacy & Security</Text>
-                {[
-                  { key: "biometric", label: "Biometric Login (Face ID)" },
-                  { key: "appLock",   label: "App Lock PIN" },
-                ].map((item) => (
-                  <View
-                    key={item.key}
-                    style={{
-                      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                      padding: 12, borderRadius: 12, backgroundColor: colors.surface,
-                    }}
-                  >
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
-                      {item.label}
-                    </Text>
-                    <Pressable
-                      onPress={() =>
-                        setPrivacySettings({
-                          ...privacySettings,
-                          [item.key]: !privacySettings[item.key as keyof typeof privacySettings],
-                        })
-                      }
-                    >
-                      <MaterialIcons
-                        name={privacySettings[item.key as keyof typeof privacySettings] ? "toggle-on" : "toggle-off"}
-                        size={24}
-                        color={privacySettings[item.key as keyof typeof privacySettings] ? ROSE_GOLD : colors.muted}
-                      />
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-
-              {/* PERSONALIZATION */}
-              <View style={{ gap: 12, marginBottom: 24 }}>
-                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Personalization</Text>
-
-                <View
-                  style={{
-                    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                    padding: 12, borderRadius: 12, backgroundColor: colors.surface,
-                  }}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* NOTIFICATIONS */}
+          <View style={{ gap: 12, marginBottom: 24 }}>
+            <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Notifications</Text>
+            {[
+              { key: "ritualReminders",   label: "Ritual Reminders" },
+              { key: "billAlerts",        label: "Bill Due Alerts" },
+              { key: "communityActivity", label: "Community Activity" },
+              { key: "ajoUpdates",        label: "Ajo Circle Updates" },
+              { key: "weeklyReport",      label: "Weekly Vault Report" },
+            ].map((item) => (
+              <View
+                key={item.key}
+                style={{
+                  flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                  padding: 12, borderRadius: 12, backgroundColor: colors.surface,
+                }}
+              >
+                <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
+                  {item.label}
+                </Text>
+                <Pressable
+                  onPress={() =>
+                    setNotificationSettings({
+                      ...notificationSettings,
+                      [item.key]: !notificationSettings[item.key as keyof typeof notificationSettings],
+                    })
+                  }
                 >
-                  <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
-                    Theme
-                  </Text>
-
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Pressable
-                      onPress={() => setColorScheme("light")}
-                      style={{ borderRadius: 16, overflow: "hidden" }}
-                    >
-                      {colorScheme === "light" ? (
-                        <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                          style={{ paddingVertical: 6, paddingHorizontal: 14 }}>
-                          <Text style={{ color: "#FAF5EF", fontFamily: "DMSans_500Medium", fontSize: 12 }}>Light</Text>
-                        </LinearGradient>
-                      ) : (
-                        <View style={{ paddingVertical: 6, paddingHorizontal: 14, backgroundColor: colors.border }}>
-                          <Text style={{ color: colors.foreground, fontFamily: "DMSans_500Medium", fontSize: 12 }}>Light</Text>
-                        </View>
-                      )}
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => setColorScheme("dark")}
-                      style={{ borderRadius: 16, overflow: "hidden" }}
-                    >
-                      {colorScheme === "dark" ? (
-                        <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                          style={{ paddingVertical: 6, paddingHorizontal: 14 }}>
-                          <Text style={{ color: "#FAF5EF", fontFamily: "DMSans_500Medium", fontSize: 12 }}>Dark</Text>
-                        </LinearGradient>
-                      ) : (
-                        <View style={{ paddingVertical: 6, paddingHorizontal: 14, backgroundColor: colors.border }}>
-                          <Text style={{ color: colors.foreground, fontFamily: "DMSans_500Medium", fontSize: 12 }}>Dark</Text>
-                        </View>
-                      )}
-                    </Pressable>
-                  </View>
-                </View>
-
-                {[
-                  { label: "Currency",   value: "₦ Naira" },
-                  { label: "Week Start", value: "Sunday" },
-                  { label: "Language",   value: "English" },
-                ].map((item, idx) => (
-                  <View
-                    key={idx}
-                    style={{
-                      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                      padding: 12, borderRadius: 12, backgroundColor: colors.surface,
-                    }}
-                  >
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
-                      {item.label}
-                    </Text>
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 12, color: colors.muted }}>{item.value}</Text>
-                  </View>
-                ))}
+                  <MaterialIcons
+                    name={notificationSettings[item.key as keyof typeof notificationSettings] ? "toggle-on" : "toggle-off"}
+                    size={24}
+                    color={notificationSettings[item.key as keyof typeof notificationSettings] ? ROSE_GOLD : colors.muted}
+                  />
+                </Pressable>
               </View>
-
-              {/* LEGAL */}
-              <View style={{ gap: 12, marginBottom: 40 }}>
-                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Legal & About</Text>
-                {[
-                  { label: "Privacy Policy", url: "https://plushapp-qtcs3erk.manus.space/privacy" },
-                  { label: "Terms of Service", url: "https://plushapp-qtcs3erk.manus.space/terms" },
-                  { label: "Open Source Licenses" },
-                ].map((item, idx) => (
-                  <Pressable
-                    key={idx}
-                    onPress={() => item.url && Linking.openURL(item.url)}
-                    android_ripple={{ color: `${colors.border}22` }}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: 12,
-                      borderRadius: 12,
-                      backgroundColor: colors.surface,
-                    }}
-                  >
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
-                      {item.label}
-                    </Text>
-                    <MaterialIcons name="chevron-right" size={18} color={`${DEEP_PLUM}59`} />
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
+            ))}
           </View>
-        </ScreenContainer>
-      </Modal>
 
-      {/* ─── SUBSCRIPTION MODAL ─────────────────────────────────── */}
-      <Modal visible={showSubscription} transparent animationType="slide">
-        <ScreenContainer className="bg-background">
-          <View style={{ flex: 1, gap: 16, paddingHorizontal: 24, paddingTop: 24 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: colors.foreground }}>
-                Upgrade Your Vault
+          {/* PRIVACY */}
+          <View style={{ gap: 12, marginBottom: 24 }}>
+            <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Privacy & Security</Text>
+            {[
+              { key: "biometric", label: "Biometric Login (Face ID)" },
+              { key: "appLock",   label: "App Lock PIN" },
+            ].map((item) => (
+              <View
+                key={item.key}
+                style={{
+                  flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                  padding: 12, borderRadius: 12, backgroundColor: colors.surface,
+                }}
+              >
+                <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
+                  {item.label}
+                </Text>
+                <Pressable
+                  onPress={() =>
+                    setPrivacySettings({
+                      ...privacySettings,
+                      [item.key]: !privacySettings[item.key as keyof typeof privacySettings],
+                    })
+                  }
+                >
+                  <MaterialIcons
+                    name={privacySettings[item.key as keyof typeof privacySettings] ? "toggle-on" : "toggle-off"}
+                    size={24}
+                    color={privacySettings[item.key as keyof typeof privacySettings] ? ROSE_GOLD : colors.muted}
+                  />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+
+          {/* PERSONALIZATION */}
+          <View style={{ gap: 12, marginBottom: 24 }}>
+            <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Personalization</Text>
+
+            <View
+              style={{
+                flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                padding: 12, borderRadius: 12, backgroundColor: colors.surface,
+              }}
+            >
+              <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
+                Theme
               </Text>
-              <Pressable onPress={() => setShowSubscription(false)}>
-                <MaterialIcons name="close" size={24} color={colors.foreground} />
-              </Pressable>
+
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Pressable
+                  onPress={() => setColorScheme("light")}
+                  style={{ borderRadius: 16, overflow: "hidden" }}
+                >
+                  {colorScheme === "light" ? (
+                    <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                      style={{ paddingVertical: 6, paddingHorizontal: 14 }}>
+                      <Text style={{ color: "#FAF5EF", fontFamily: "DMSans_500Medium", fontSize: 12 }}>Light</Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={{ paddingVertical: 6, paddingHorizontal: 14, backgroundColor: colors.border }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "DMSans_500Medium", fontSize: 12 }}>Light</Text>
+                    </View>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setColorScheme("dark")}
+                  style={{ borderRadius: 16, overflow: "hidden" }}
+                >
+                  {colorScheme === "dark" ? (
+                    <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                      style={{ paddingVertical: 6, paddingHorizontal: 14 }}>
+                      <Text style={{ color: "#FAF5EF", fontFamily: "DMSans_500Medium", fontSize: 12 }}>Dark</Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={{ paddingVertical: 6, paddingHorizontal: 14, backgroundColor: colors.border }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "DMSans_500Medium", fontSize: 12 }}>Dark</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {[
-                {
-                  name: "Free",
-                  price: "₦0",
-                  tier: "Member",
-                  features: ["Manual expense entry", "1 savings goal", "Read-only community", "Sunday ritual"],
-                  current: false,
-                },
-                {
-                  name: "Plush Member",
-                  price: "₦1,200/month",
-                  tier: "Member",
-                  features: ["Unlimited expenses", "All 8 rituals", "Community posting", "Vault Twins"],
-                  current: true,
-                },
-                {
-                  name: "Plush AI",
-                  price: "₦3,000/month",
-                  tier: "AI",
-                  features: ["Screenshot scanning", "Voice entry", "Camera scan", "Ask Plush AI chat"],
-                  current: false,
-                },
-                {
-                  name: "Plush Society",
-                  price: "₦8,000/month",
-                  tier: "Society",
-                  features: ["Weekly group calls", "Investment tracker", "Founder access", "Early features"],
-                  current: false,
-                },
-              ].map((tier, idx) => (
-                <View
-                  key={idx}
-                  style={{
-                    borderRadius: 16, padding: 16, gap: 12, marginBottom: 12,
-                    backgroundColor: tier.current ? `${DEEP_PLUM}1A` : colors.surface,
-                    borderWidth: tier.current ? 2 : 0,
-                    borderColor: tier.current ? DEEP_PLUM : "transparent",
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>
-                      {tier.name}
-                    </Text>
-                    {tier.current && <SoftTick />}
-                  </View>
-
-                  <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 18, color: DEEP_PLUM }}>
-                    {tier.price}
-                  </Text>
-
-                  <View style={{ gap: 8 }}>
-                    {tier.features.map((feature, fidx) => (
-                      <View key={fidx} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <SoftTick />
-                        <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: colors.muted }}>
-                          {feature}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {!tier.current && (
-                    <Pressable
-                      onPress={() => {
-                        setShowSubscription(false);
-                        router.push("/onboarding/paywall?from=profile");
-                      }}
-                      style={{ borderRadius: 16, overflow: "hidden", marginTop: 8 }}
-                    >
-                      <LinearGradient
-                        colors={PLUSH_GRADIENT}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={{ height: 52, alignItems: "center", justifyContent: "center" }}
-                      >
-                        <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 15, color: CREAM }}>Upgrade</Text>
-                      </LinearGradient>
-                    </Pressable>
-                  )}
-                </View>
-              ))}
-            </ScrollView>
+            {[
+              { label: "Currency",   value: "₦ Naira" },
+              { label: "Week Start", value: "Sunday" },
+              { label: "Language",   value: "English" },
+            ].map((item, idx) => (
+              <View
+                key={idx}
+                style={{
+                  flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                  padding: 12, borderRadius: 12, backgroundColor: colors.surface,
+                }}
+              >
+                <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
+                  {item.label}
+                </Text>
+                <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 12, color: colors.muted }}>{item.value}</Text>
+              </View>
+            ))}
           </View>
-        </ScreenContainer>
-      </Modal>
+
+          {/* LEGAL */}
+          <View style={{ gap: 12, marginBottom: 40 }}>
+            <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Legal & About</Text>
+            {[
+              { label: "Privacy Policy", url: "https://plushapp-qtcs3erk.manus.space/privacy" },
+              { label: "Terms of Service", url: "https://plushapp-qtcs3erk.manus.space/terms" },
+              { label: "Open Source Licenses" },
+            ].map((item, idx) => (
+              <Pressable
+                key={idx}
+                onPress={() => item.url && Linking.openURL(item.url)}
+                android_ripple={{ color: `${colors.border}22` }}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: colors.surface,
+                }}
+              >
+                <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
+                  {item.label}
+                </Text>
+                <MaterialIcons name="chevron-right" size={18} color={`${DEEP_PLUM}59`} />
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </PlushBottomSheet>
+
+      {/* ─── SUBSCRIPTION BOTTOM SHEET ──────────────────────────── */}
+      <PlushBottomSheet visible={showSubscription} onClose={() => setShowSubscription(false)}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: colors.foreground }}>
+            Upgrade Your Vault
+          </Text>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {[
+            {
+              name: "Free",
+              price: "₦0",
+              tier: "Member",
+              features: ["Manual expense entry", "1 savings goal", "Read-only community", "Sunday ritual"],
+              current: false,
+            },
+            {
+              name: "Plush Member",
+              price: "₦1,200/month",
+              tier: "Member",
+              features: ["Unlimited expenses", "All 8 rituals", "Community posting", "Vault Twins"],
+              current: true,
+            },
+            {
+              name: "Plush AI",
+              price: "₦3,000/month",
+              tier: "AI",
+              features: ["Screenshot scanning", "Voice entry", "Camera scan", "Ask Plush AI chat"],
+              current: false,
+            },
+            {
+              name: "Plush Society",
+              price: "₦8,000/month",
+              tier: "Society",
+              features: ["Weekly group calls", "Investment tracker", "Founder access", "Early features"],
+              current: false,
+            },
+          ].map((tier, idx) => (
+            <View
+              key={idx}
+              style={{
+                borderRadius: 16, padding: 16, gap: 12, marginBottom: 12,
+                backgroundColor: tier.current ? `${DEEP_PLUM}1A` : colors.surface,
+                borderWidth: tier.current ? 2 : 0,
+                borderColor: tier.current ? DEEP_PLUM : "transparent",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>
+                  {tier.name}
+                </Text>
+                {tier.current && <SoftTick />}
+              </View>
+
+              <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 18, color: DEEP_PLUM }}>
+                {tier.price}
+              </Text>
+
+              <View style={{ gap: 8 }}>
+                {tier.features.map((feature, fidx) => (
+                  <View key={fidx} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <SoftTick />
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: colors.muted }}>
+                      {feature}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {!tier.current && (
+                <Pressable
+                  onPress={() => {
+                    setShowSubscription(false);
+                    router.push("/onboarding/paywall?from=profile");
+                  }}
+                  style={{ borderRadius: 16, overflow: "hidden", marginTop: 8 }}
+                >
+                  <LinearGradient
+                    colors={PLUSH_GRADIENT}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ height: 52, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 15, color: CREAM }}>Upgrade</Text>
+                  </LinearGradient>
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      </PlushBottomSheet>
     </ScreenContainer>
   );
 }

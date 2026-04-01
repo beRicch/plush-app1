@@ -22,6 +22,7 @@ import { trpc } from "@/lib/trpc";
 import { useAudioRecorder, AudioModule, RecordingOptions } from "expo-audio";
 import { useSubscription } from "@/lib/revenuecat";
 import { useRouter } from "expo-router";
+import { PlushBottomSheet } from "@/components/plush-bottom-sheet";
 
 const BLUSH_PINK = "#F4B8C1";
 const DEEP_PLUM = "#4A1560";
@@ -736,30 +737,14 @@ export default function LogScreen() {
         </View>
       </Modal>
 
-      {/* CATEGORY DROPDOWN MODAL */}
-      <Modal visible={showCategoryDropdown} transparent animationType="slide">
-        <View
-          className="flex-1 justify-end"
-          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-        >
-          <View
-            style={{ backgroundColor: colors.background }}
-            className="rounded-t-3xl p-6 max-h-[80%]"
-          >
-            <View className="flex-row justify-between items-center mb-4">
+      <PlushBottomSheet visible={showCategoryDropdown} onClose={() => setShowCategoryDropdown(false)}>
+            <View className="mb-4">
               <Text
                 className="text-xl font-bold text-foreground"
                 style={{ fontFamily: "PlayfairDisplay_700Bold" }}
               >
                 Select Category
               </Text>
-              <Pressable onPress={() => setShowCategoryDropdown(false)}>
-                <MaterialIcons
-                  name="close"
-                  size={24}
-                  color={colors.foreground}
-                />
-              </Pressable>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {CATEGORIES.map((cat) => (
@@ -788,22 +773,11 @@ export default function LogScreen() {
                 </Pressable>
               ))}
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </PlushBottomSheet>
 
       {/* CONFIRMATION MODAL */}
-      <Modal visible={showConfirmation} transparent animationType="slide">
-        <View className="flex-1 bg-black/50 justify-end">
-          <View
-            className="bg-background rounded-t-3xl p-6 gap-4 max-h-[90%]"
-            style={{ backgroundColor: colors.background }}
-          >
-            <View className="items-center mb-2">
-              <View className="w-12 h-1 bg-border rounded-full" />
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
+      <PlushBottomSheet visible={showConfirmation} onClose={() => setShowConfirmation(false)}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
               <Text
                 className="text-2xl font-bold text-foreground mb-4"
                 style={{ fontFamily: "PlayfairDisplay_700Bold" }}
@@ -914,21 +888,10 @@ export default function LogScreen() {
                 </Pressable>
               </View>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </PlushBottomSheet>
 
       {/* UPGRADE SHEET */}
-      <Modal visible={showUpgradeSheet} transparent animationType="slide">
-        <View className="flex-1 bg-black/50 justify-end">
-          <View
-            className="bg-background rounded-t-3xl p-6 gap-4"
-            style={{ backgroundColor: colors.background }}
-          >
-            <View className="items-center mb-2">
-              <View className="w-12 h-1 bg-border rounded-full" />
-            </View>
-
+      <PlushBottomSheet visible={showUpgradeSheet} onClose={() => setShowUpgradeSheet(false)}>
             <Text
               className="text-2xl font-bold text-foreground text-center"
               style={{ fontFamily: "PlayfairDisplay_700Bold" }}
@@ -979,9 +942,7 @@ export default function LogScreen() {
             >
               <Text className="text-muted font-medium">Maybe later</Text>
             </Pressable>
-          </View>
-        </View>
-      </Modal>
+      </PlushBottomSheet>
     </ScreenContainer>
   );
 }

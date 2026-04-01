@@ -379,7 +379,7 @@ export default function HomeScreen() {
                   </View>
                   <View>
                     <Text style={{ fontFamily: "DMSans_400Regular", color: `${CREAM}80`, fontSize: 11, marginBottom: 4 }}>Saved (This month)</Text>
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>₦{(stats.savedThisMonth / 1000).toFixed(0)}k</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>₦{((stats.savedThisMonth ?? 0) / 1000).toFixed(0)}k</Text>
                   </View>
                 </View>
 
@@ -473,27 +473,29 @@ export default function HomeScreen() {
                   onPress={() => item.name === "Ajo" && router.replace("/ajo-circle")}
                   style={{
                     borderRadius: 16,
-                    padding: 12,
+                    padding: 16,
                     marginRight: 12,
-                    minWidth: 105,
+                    width: 140,
+                    height: 140,
                     alignItems: "center",
-                    gap: 2,
-                    backgroundColor: "#F2E4E1",
-                    shadowColor: DEEP_PLUM,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.08,
-                    shadowRadius: 16,
-                    elevation: 3,
+                    justifyContent: "center",
+                    gap: 6,
+                    backgroundColor: "#EFE6F3",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 8,
+                    elevation: 2,
                   }}
                 >
-                  <Text style={{ fontSize: 20, textAlign: "center" }}>{item.icon}</Text>
-                  <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: `${DEEP_PLUM}A6`, textAlign: "center", marginBottom: 2 }}>
+                  <Text style={{ fontSize: 24, textAlign: "center", marginBottom: 2 }}>{item.icon}</Text>
+                  <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: DEEP_PLUM, textAlign: "center", opacity: 0.6 }}>
                     {item.name}
                   </Text>
                   <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 15, color: DEEP_PLUM }}>
                     ₦{(item.amount / 1000).toFixed(0)}k
                   </Text>
-                  <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 12, color: ROSE_GOLD }}>
+                  <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 11, color: ROSE_GOLD }}>
                     {item.percentage}%
                   </Text>
                 </Pressable>

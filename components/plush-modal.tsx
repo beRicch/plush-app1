@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal, View, Text, Pressable, StyleSheet, ViewStyle, TextStyle } from "react-native";
+import { Modal, View, Text, Pressable, StyleSheet, ViewStyle, TextStyle, PanResponder, Animated, Dimensions } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 interface PlushModalProps {
@@ -19,6 +19,40 @@ export function PlushModal({
   type = "info",
   buttonText = "Got it 🌸",
 }: PlushModalProps) {
+  const panY = React.useRef(new Animated.Value(0)).current;
+  
+  const resetPositionAnim = Animated.timing(panY, {
+    toValue: 0,
+    duration: 300,
+    useNativeDriver: true,
+  });
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          panY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 100) {
+          onClose();
+          // Reset after a delay to ensure it's ready for next show
+          setTimeout(() => panY.setValue(0), 300);
+        } else {
+          resetPositionAnim.start();
+        }
+      },
+    })
+  ).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      panY.setValue(0);
+    }
+  }, [visible]);
+
   const iconMap: Record<string, { name: string; color: string }> = {
     error: { name: "error-outline", color: "#EF4444" },
     info: { name: "info-outline", color: "#B76E79" },
@@ -30,7 +64,13 @@ export function PlushModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <Animated.View 
+          style={[
+            styles.container,
+            { transform: [{ translateY: panY }] }
+          ]}
+          {...panResponder.panHandlers}
+        >
           <View style={styles.handle} />
           
           <View style={styles.content}>
@@ -45,7 +85,7 @@ export function PlushModal({
               <Text style={styles.buttonText}>{buttonText}</Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
