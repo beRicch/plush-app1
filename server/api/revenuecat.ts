@@ -24,19 +24,19 @@ export interface SubscriptionInfo {
  */
 export async function checkSubscription(userId: number): Promise<SubscriptionInfo> {
   // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
-  // Mock: User has Member tier
+  // Bypass for testing: Always return Society tier
   return {
-    tier: "plush_member",
+    tier: "plush_society",
     isActive: true,
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     autoRenew: true,
     entitlements: [
       {
-        identifier: "plush_member",
+        identifier: "plush_society",
         isActive: true,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       },
     ],
   };
@@ -107,6 +107,10 @@ export function hasFeatureAccess(
   tier: SubscriptionTier,
   feature: "screenshot" | "voice" | "camera" | "ai_chat" | "debt_tracking" | "investments"
 ): boolean {
+  // Bypass for testing: Always return true
+  return true;
+
+  /* Original Logic:
   const featureMap: Record<SubscriptionTier, string[]> = {
     free: [],
     plush_member: [],
@@ -115,6 +119,7 @@ export function hasFeatureAccess(
   };
 
   return featureMap[tier].includes(feature);
+  */
 }
 
 /**

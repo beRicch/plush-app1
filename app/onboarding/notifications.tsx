@@ -4,16 +4,31 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
 
+import { registerForPushNotificationsAsync } from "@/lib/notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { HAS_COMPLETED_ONBOARDING_KEY } from "@/constants/oauth";
+
 export default function NotificationsScreen() {
   const router = useRouter();
 
   const handleRequestPermission = async () => {
     // In a real app, this would request native push notification permissions
+    try {
+      await registerForPushNotificationsAsync();
+      await AsyncStorage.setItem(HAS_COMPLETED_ONBOARDING_KEY, "true");
+    } catch (error) {
+      console.error("[Notifications] Failed to set onboarding flag:", error);
+    }
     // For now, navigate to tabs
     router.push("../(tabs)");
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    try {
+      await AsyncStorage.setItem(HAS_COMPLETED_ONBOARDING_KEY, "true");
+    } catch (error) {
+      console.error("[Notifications] Failed to set onboarding flag:", error);
+    }
     router.push("../(tabs)");
   };
 
@@ -21,29 +36,29 @@ export default function NotificationsScreen() {
     <ScreenContainer
       edges={["top", "bottom", "left", "right"]}
       containerClassName="bg-background"
-      className="flex-1 justify-center items-center px-6"
+      style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="gap-8 w-full max-w-sm py-12">
+        <View style={{ gap: 32, width: "100%", maxWidth: 384, paddingVertical: 48 }}>
           {/* Illustration */}
-          <View className="items-center">
-            <View className="w-24 h-24 bg-surface rounded-2xl border border-border items-center justify-center">
-              <Text className="text-5xl">🔔</Text>
+          <View style={{ alignItems: "center" }}>
+            <View style={{ width: 96, height: 96, backgroundColor: "rgba(255,255,255,0.5)", borderRadius: 16, borderWidth: 1, borderColor: "#E5E5E5", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontSize: 48 }}>🔔</Text>
             </View>
           </View>
 
           {/* Text */}
-          <View className="gap-4 items-center">
-            <Text className="font-playfair text-2xl font-bold text-primary text-center">
+          <View style={{ gap: 16, alignItems: "center" }}>
+            <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 24, fontWeight: "bold", color: "#4A1560", textAlign: "center" }}>
               Stay in the loop
             </Text>
-            <Text className="font-dm-sans text-base text-foreground text-center leading-relaxed">
+            <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 16, color: "#1A1A1A", textAlign: "center", lineHeight: 24 }}>
               Plush needs to reach you. Let us send you ritual reminders, Ajo Circle updates, and your weekly Plush Score. 🌸
             </Text>
           </View>
 
           {/* Buttons */}
-          <View className="gap-3 mt-auto">
+          <View style={{ gap: 12, marginTop: "auto" }}>
             <Pressable
               onPress={handleRequestPermission}
               style={({ pressed }) => [
@@ -52,19 +67,19 @@ export default function NotificationsScreen() {
                   transform: [{ scale: pressed ? 0.97 : 1 }],
                   overflow: "hidden",
                   borderRadius: 16,
+                  marginTop: 8,
                 },
               ]}
-              className="w-full mt-2"
             >
-              <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 px-6 items-center w-full justify-center">
-                <Text className="text-background font-dm-sans font-semibold text-base">
+              <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingVertical: 16, paddingHorizontal: 24, alignItems: "center", width: "100%", justifyContent: "center" }}>
+                <Text style={{ color: "#FFFFFF", fontFamily: "DMSans_500Medium", fontWeight: "600", fontSize: 16 }}>
                   Yes, keep me in the loop
                 </Text>
               </LinearGradient>
             </Pressable>
 
             <Pressable onPress={handleSkip}>
-              <Text className="text-primary font-dm-sans text-center text-base">Maybe later</Text>
+              <Text style={{ color: "#4A1560", fontFamily: "DMSans_400Regular", textAlign: "center", fontSize: 16, paddingVertical: 12 }}>Maybe later</Text>
             </Pressable>
           </View>
         </View>

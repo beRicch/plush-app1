@@ -7,6 +7,7 @@ import {
   TextInput,
   FlatList,
   Animated,
+  Share,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -193,6 +194,14 @@ export default function CommunityScreen() {
     }
   };
 
+  const handleSharePost = async (message: string) => {
+    try {
+      await Share.share({ message });
+    } catch (error) {
+      console.error("Share failed", error);
+    }
+  };
+
   // #9 — Submit an inline reply
   const handleSubmitReply = (postId: string) => {
     const text = replyTexts[postId]?.trim();
@@ -304,6 +313,7 @@ export default function CommunityScreen() {
                     Share your win with the sisterhood today
                   </Text>
                   <Pressable
+                    onPress={() => router.replace("/rituals-hub")}
                     style={{
                       alignSelf: "flex-start",
                       backgroundColor: ROSE_GOLD, borderRadius: 16,
@@ -404,7 +414,10 @@ export default function CommunityScreen() {
                   </Text>
                 </Pressable>
 
-                <Pressable className="flex-1 flex-row items-center justify-center gap-1 py-2">
+                <Pressable
+                  onPress={() => handleSharePost(item.content)}
+                  className="flex-1 flex-row items-center justify-center gap-1 py-2"
+                >
                   <MaterialIcons name="share" size={14} color={colors.muted} />
                   <Text className="text-xs text-muted font-semibold">Share</Text>
                 </Pressable>
@@ -510,7 +523,7 @@ export default function CommunityScreen() {
                       <Text className="text-sm font-bold text-foreground">{twin.ritualScore}%</Text>
                     </View>
 
-                    <Pressable className="rounded-lg items-center overflow-hidden">
+                    <Pressable onPress={() => setShowComposer(true)} className="rounded-lg items-center overflow-hidden">
                       <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="w-full py-2 items-center justify-center">
                         <Text className="text-white text-xs font-bold">Send 💜</Text>
                       </LinearGradient>

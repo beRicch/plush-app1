@@ -32,32 +32,32 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
-    const values: InsertUser = {
+    const values: Partial<InsertUser> = {
       openId: user.openId,
     };
     const updateSet: Record<string, unknown> = {};
 
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
+    // All possible user fields from schema
+    const fields = [
+      "name", "email", "phone", "avatarUrl", 
+      "loginMethod", "moneyPersonality", "monthlyIncomeRange",
+      "subscriptionTier", "role"
+    ] as const;
 
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
+    fields.forEach((field) => {
+      const value = user[field as keyof InsertUser];
+      if (value !== undefined) {
+        values[field as keyof InsertUser] = value as any;
+        updateSet[field] = value;
+      }
+    });
 
     if (user.lastSignedIn !== undefined) {
       values.lastSignedIn = user.lastSignedIn;
       updateSet.lastSignedIn = user.lastSignedIn;
     }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
+    
+    if (values.role === undefined && user.openId === ENV.ownerOpenId) {
       values.role = "admin";
       updateSet.role = "admin";
     }
@@ -70,12 +70,29 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onConflictDoUpdate({
+    await db.insert(users).values(values as any).onConflictDoUpdate({
       target: users.openId,
       set: updateSet,
     });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
+    throw error;
+  }
+}
+
+export async function updateUser(openId: string, data: Partial<InsertUser>): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update user: database not available");
+    return;
+  }
+
+  try {
+    await db.update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.openId, openId));
+  } catch (error) {
+    console.error("[Database] Failed to update user:", error);
     throw error;
   }
 }
@@ -90,6 +107,48 @@ export async function getUserByOpenId(openId: string) {
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
 
   return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Permanently delete a user and all associated data.
+ * This should be used for the "Delete Account" feature.
+ */
+export async function deleteUser(userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available for account deletion");
+  }
+
+  // Import schemas for all tables to clean up
+  const { 
+    expenses, savingsGoals, savingsDeposits, debts, investments,
+    communityPosts, communityComments, ritualCompletions, bills,
+    ajoMembers, ajoContributions, ajoCircles, ajoMessages
+  } = await import("../drizzle/schema");
+
+  await db.transaction(async (tx) => {
+    // 1. Delete user-specific data from all tables
+    // Note: We use the userId (integer) for these deletions
+    await tx.delete(expenses).where(eq(expenses.userId, userId));
+    await tx.delete(savingsGoals).where(eq(savingsGoals.userId, userId));
+    await tx.delete(savingsDeposits).where(eq(savingsDeposits.userId, userId));
+    await tx.delete(debts).where(eq(debts.userId, userId));
+    await tx.delete(investments).where(eq(investments.userId, userId));
+    await tx.delete(communityPosts).where(eq(communityPosts.userId, userId));
+    await tx.delete(communityComments).where(eq(communityComments.userId, userId));
+    await tx.delete(ritualCompletions).where(eq(ritualCompletions.userId, userId));
+    await tx.delete(bills).where(eq(bills.userId, userId));
+    await tx.delete(ajoMembers).where(eq(ajoMembers.userId, userId));
+    await tx.delete(ajoContributions).where(eq(ajoContributions.userId, userId));
+    await tx.delete(ajoMessages).where(eq(ajoMessages.userId, userId));
+
+    // 2. Handle Ajo Circles created by the user
+    // If you are the creator, the circle is deleted
+    await tx.delete(ajoCircles).where(eq(ajoCircles.creatorId, userId));
+
+    // 3. Finally, delete the user record
+    await tx.delete(users).where(eq(users.id, userId));
+  });
 }
 
 // TODO: add feature queries here as your schema grows.

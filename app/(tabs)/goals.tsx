@@ -5,10 +5,12 @@ import {
   Pressable,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { EmptyState } from "@/components/plush-empty-state";
@@ -16,30 +18,31 @@ import { TooltipModal } from "@/components/plush-tooltip";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
 import { PlushCelebration } from "@/components/plush-celebration";
+import { useAuth } from "@/hooks/use-auth";
+import { trpc } from "@/lib/trpc";
 
-// Mock data
-const MOCK_GOALS = [
-  {
-    id: "1",
-    name: "Detty December Peace Fund 🎉",
-    target: 150000,
-    current: 67500,
-    targetDate: "2024-12-25",
-    monthlyContribution: 25000,
-    motivation: "You're 45% there! At this rate, you'll hit your goal 2 weeks early 💜",
-    coverColor: "#F5D5E3",
-  },
-  {
-    id: "2",
-    name: "Skincare Splurge 💄",
-    target: 80000,
-    current: 62000,
-    targetDate: "2024-04-30",
-    monthlyContribution: 20000,
-    motivation: "Almost there! Your glow-up is just 3 weeks away ✨",
-    coverColor: "#E8D5F5",
-  },
-];
+interface Goal {
+  id: string;
+  name: string;
+  target: number;
+  current: number;
+  targetDate: string;
+  monthlyContribution: number;
+  motivation: string;
+  coverColor: string;
+}
+
+const INITIAL_GOAL_PREFIX = "plush_goals_";
+
+const DEFAULT_GOAL: Omit<Goal, "id"> = {
+  name: "Plush Savings Target",
+  target: 100000,
+  current: 0,
+  targetDate: new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString().slice(0, 10),
+  monthlyContribution: 20000,
+  motivation: "A custom target to kickstart your Plush journey.",
+  coverColor: "#E8D5F5",
+};
 
 const GOAL_SUGGESTIONS = [
   "Emergency Fund",
@@ -63,7 +66,10 @@ const COVER_VIBES = [
 
 export default function GoalsScreen() {
   const colors = useColors();
-  const [hasGoals, setHasGoals] = useState(true);
+  const { user, loading: authLoading } = useAuth();
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loadingGoals, setLoadingGoals] = useState(true);
+  const hasGoals = goals.length > 0;
   const [showCreateFlow, setShowCreateFlow] = useState(false);
   const [showDetailView, setShowDetailView] = useState<string | null>(null);
   const [step, setStep] = useState(1);
@@ -71,6 +77,8 @@ export default function GoalsScreen() {
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [showAddToGoal, setShowAddToGoal] = useState(false);
   const [addAmount, setAddAmount] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState(new Date());
   // #11 — Warm error states
   const [goalNameError, setGoalNameError] = useState("");
   // #12 — Delete confirmation
@@ -86,10 +94,52 @@ export default function GoalsScreen() {
   const [monthlyAmount, setMonthlyAmount] = useState("");
   const [selectedCover, setSelectedCover] = useState(COVER_VIBES[0].id);
   const [motivationNote, setMotivationNote] = useState("");
+  const [quizData, setQuizData] = useState<{
+    incomeFrequency?: string;
+    monthlyIncomeRange?: string;
+    targetGoalValue?: string;
+  } | null>(null);
 
-  const selectedGoal = MOCK_GOALS.find((g) => g.id === showDetailView);
+  const selectedGoal = goals.find((g) => g.id === showDetailView);
 
   const router = useRouter();
+  const storageKey = user?.openId ? `${INITIAL_GOAL_PREFIX}${user.openId}` : null;
+
+  const formatIsoDate = (date: Date) => date.toISOString().slice(0, 10);
+  const today = new Date();
+  const getDateOnly = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const todayOnly = getDateOnly(today);
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  const getCalendarDays = () => {
+    const month = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), 1);
+    const firstWeekday = month.getDay();
+    const daysInMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 0).getDate();
+    const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+    return Array.from({ length: totalCells }, (_, index) => {
+      const dayNumber = index - firstWeekday + 1;
+      const date = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), dayNumber);
+      return {
+        dayNumber,
+        date,
+        isValid: dayNumber >= 1 && dayNumber <= daysInMonth,
+        isFutureOrToday: dayNumber >= 1 && dayNumber <= daysInMonth && getDateOnly(date) >= todayOnly,
+      };
+    });
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setTargetDate(formatIsoDate(date));
+    setShowDatePicker(false);
+  };
+
+  const goToMonth = (delta: number) => {
+    setPickerMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+  };
 
   const calculateDaysRemaining = (date: string) => {
     const target = new Date(date);
@@ -99,8 +149,36 @@ export default function GoalsScreen() {
     return days > 0 ? days : 0;
   };
 
+  const estimateMonthsToTarget = (current: number, target: number, monthly: number) => {
+    if (!monthly || monthly <= 0) return null;
+    const remaining = Math.max(0, target - current);
+    return Math.ceil(remaining / monthly);
+  };
+
+  const formatMonthText = (months: number | null) => {
+    if (months === null) return "Set a monthly saving plan to estimate completion.";
+    if (months <= 1) return "Less than 1 month";
+    return `${months} months`;
+  };
+
   const getProgressPercentage = (current: number, target: number) => {
     return Math.round((current / target) * 100);
+  };
+
+  const persistGoals = async (nextGoals: Goal[]) => {
+    if (!storageKey) return;
+    try {
+      await AsyncStorage.setItem(storageKey, JSON.stringify(nextGoals));
+    } catch (error) {
+      console.error("Failed to persist goals", error);
+    }
+  };
+
+  const createDefaultGoal = (): Goal => {
+    return {
+      id: `plush_default_goal_${user?.openId ?? Date.now()}`,
+      ...DEFAULT_GOAL,
+    };
   };
 
   const handleCreateGoal = () => {
@@ -108,10 +186,19 @@ export default function GoalsScreen() {
       setGoalNameError("Give your goal a name first — it needs one to hold space for you.");
       return;
     }
+
+    createGoalMutation.mutate({
+      name: goalName,
+      targetAmount: Number(targetAmount),
+      targetDate,
+      motivation: motivationNote || "Your Plush is holding space for this goal.",
+      coverColor: COVER_VIBES.find((v) => v.id === selectedCover)?.color ?? COVER_VIBES[0].color,
+    });
+
     setGoalNameError("");
     setShowCreateFlow(false);
-    // Navigate to the beautiful full-screen celebration
-    router.push({ pathname: "/goal-celebration", params: { goalName } });
+    // Navigate to the beautiful full-screen celebration page
+    router.push(`/goal-celebration?goalName=${encodeURIComponent(goalName)}`);
     
     // Reset state after a short delay to avoid flickering
     setTimeout(() => {
@@ -134,11 +221,109 @@ export default function GoalsScreen() {
     setGoalNameError("");
   };
 
-  const savingsRate = 18; // Mock data
+  const dashboardQuery = trpc.plush.analytics.dashboard.useQuery();
+  const savingsRate = dashboardQuery.data?.totalSaved && dashboardQuery.data?.safeToSpend 
+    ? Math.round((dashboardQuery.data.totalSaved / (dashboardQuery.data.totalSaved + dashboardQuery.data.safeToSpend)) * 100) 
+    : 18; // Default to 18 if no data
+
+  // tRPC Hooks
+  const utils = trpc.useUtils();
+  const { data: dbGoals, isLoading: loadingGoalsDb } = trpc.plush.savings.listGoals.useQuery(undefined, {
+    enabled: !!user,
+  });
+  
+  const createGoalMutation = trpc.plush.savings.createGoal.useMutation({
+    onSuccess: () => {
+      utils.plush.savings.listGoals.invalidate();
+    },
+  });
+
+  const addDepositMutation = trpc.plush.savings.addDeposit.useMutation({
+    onSuccess: () => {
+      utils.plush.savings.listGoals.invalidate();
+      if (selectedGoalId) {
+        utils.plush.savings.listDeposits.invalidate({ goalId: selectedGoalId });
+      }
+    },
+  });
+
+  const { data: dbDeposits } = trpc.plush.savings.listDeposits.useQuery(
+    { goalId: showDetailView || "" },
+    { enabled: !!showDetailView }
+  );
+
+  useEffect(() => {
+    if (dbGoals) {
+      // Map DB goals to frontend Goal interface if needed
+      const mappedGoals: Goal[] = dbGoals.map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        target: g.targetAmount,
+        current: g.currentAmount,
+        targetDate: g.targetDate,
+        monthlyContribution: 0, // Not in schema yet, but can be added if needed
+        motivation: g.motivationNote || "",
+        coverColor: g.coverTheme || COVER_VIBES[0].color,
+      }));
+      setGoals(mappedGoals);
+      setLoadingGoals(false);
+    } else if (!loadingGoalsDb) {
+      setLoadingGoals(false);
+    }
+  }, [dbGoals, loadingGoalsDb]);
+
+  useEffect(() => {
+    const loadQuizData = async () => {
+      try {
+        const raw = await AsyncStorage.getItem("plush_pending_onboarding");
+        if (raw) setQuizData(JSON.parse(raw));
+      } catch (e) {
+        console.warn("Failed to load quiz data for suggestion", e);
+      }
+    };
+    loadQuizData();
+  }, []);
+
+  const getDynamicSuggestion = () => {
+    const incomeRange = user?.monthlyIncomeRange || quizData?.monthlyIncomeRange || "C";
+    const frequency = quizData?.incomeFrequency || "A"; // Default to monthly
+    
+    const incomeValue = {
+      A: 75000,
+      B: 175000,
+      C: 375000,
+      D: 750000,
+    }[incomeRange as "A" | "B" | "C" | "D"] ?? 375000;
+
+    const recommendedRatio = 0.2; // 20%
+    const monthlyRec = Math.round((incomeValue * recommendedRatio) / 5000) * 5000;
+    
+    if (frequency === "B") { // Weekly
+      const weeklyRec = Math.round((monthlyRec / 4) / 1000) * 1000;
+      const months = targetAmount ? Math.ceil(Number(targetAmount) / monthlyRec) : 6;
+      return `Based on your weekly income, saving ₦${weeklyRec.toLocaleString()}/week gets you there in ${months} months. You've got this. 🌸`;
+    }
+
+    const months = targetAmount ? Math.ceil(Number(targetAmount) / monthlyRec) : 6;
+    return `Based on your income, saving ₦${monthlyRec.toLocaleString()}/month gets you there in ${months} months. You've got this. 🌸`;
+  };
+
+  if (authLoading || loadingGoals) {
+    return (
+      <ScreenContainer className="bg-background items-center justify-center">
+        <ActivityIndicator size="large" color="#4A1560" />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer className="bg-background">
       {/* #10 — Naira Naming Ceremony first-time tooltip */}
+      <TooltipModal
+        storageKey={storageKey ? `welcome_goal_prompt_${storageKey}` : "welcome_goal_prompt"}
+        title="Your first Plush goal is ready"
+        message="We created a goal for you on Goals. Tap it to start saving and make it real."
+      />
       <TooltipModal
         storageKey="naira_naming"
         title="Naira Naming Ceremony 🌸"
@@ -164,7 +349,7 @@ export default function GoalsScreen() {
           </View>
 
           {/* #6 — Warm empty state */}
-          {!hasGoals ? (
+          {!goals.length ? (
             <EmptyState
               illustration="🌸"
               headline="Name your first goal, sis"
@@ -183,7 +368,7 @@ export default function GoalsScreen() {
             <>
               {/* ACTIVE GOALS LIST */}
               <View className="px-6 gap-4">
-                {MOCK_GOALS.map((goal) => {
+                {goals.map((goal) => {
                   const percentage = getProgressPercentage(goal.current, goal.target);
                   const daysRemaining = calculateDaysRemaining(goal.targetDate);
 
@@ -380,7 +565,7 @@ export default function GoalsScreen() {
               Add to Goal 🌸
             </Text>
             <Text className="text-sm text-muted">
-              {MOCK_GOALS.find(g => g.id === selectedGoalId)?.name}
+              {goals.find((g) => g.id === selectedGoalId)?.name}
             </Text>
             <View className="flex-row items-center bg-surface rounded-lg px-3 py-3">
               <Text className="text-lg font-bold text-muted mr-2">₦</Text>
@@ -402,26 +587,38 @@ export default function GoalsScreen() {
                 <Text className="text-foreground font-semibold">Cancel</Text>
               </Pressable>
               <Pressable
-                onPress={() => { 
+                onPress={async () => { 
                   const amount = parseInt(addAmount);
-                  if (!isNaN(amount) && selectedGoal) {
-                    const newCurrent = selectedGoal.current + amount;
-                    const oldPercentage = getProgressPercentage(selectedGoal.current, selectedGoal.target);
-                    const newPercentage = getProgressPercentage(newCurrent, selectedGoal.target);
-                    
-                    // Check for milestones
-                    const milestones = [25, 50, 75, 100];
-                    const hitMilestone = milestones.find(m => oldPercentage < m && newPercentage >= m);
-                    
-                    if (hitMilestone) {
-                      setMilestoneData({
-                        title: hitMilestone === 100 ? "Goal Achieved! 👑" : `${hitMilestone}% Complete! ✨`,
-                        subtitle: hitMilestone === 100 
-                          ? `You've fully funded ${selectedGoal.name}! Time to shine, sis! 🌸`
-                          : `You've reached the ${hitMilestone}% milestone for ${selectedGoal.name}. Keep that energy! 💜`,
-                        emoji: hitMilestone === 100 ? "👑" : "✨"
+                  if (!isNaN(amount) && selectedGoalId) {
+                    try {
+                      await addDepositMutation.mutateAsync({
+                        goalId: selectedGoalId,
+                        amount: amount,
+                        date: new Date().toISOString().split("T")[0],
                       });
-                      setShowMilestoneCelebration(true);
+
+                      if (selectedGoal) {
+                        const newCurrent = selectedGoal.current + amount;
+                        const oldPercentage = getProgressPercentage(selectedGoal.current, selectedGoal.target);
+                        const newPercentage = getProgressPercentage(newCurrent, selectedGoal.target);
+                        
+                        // Check for milestones
+                        const milestones = [25, 50, 75, 100];
+                        const hitMilestone = milestones.find(m => oldPercentage < m && newPercentage >= m);
+                        
+                        if (hitMilestone) {
+                          setMilestoneData({
+                            title: hitMilestone === 100 ? "Goal Achieved! 👑" : `${hitMilestone}% Complete! ✨`,
+                            subtitle: hitMilestone === 100 
+                              ? `You've fully funded ${selectedGoal.name}! Time to shine, sis! 🌸`
+                              : `You've reached the ${hitMilestone}% milestone for ${selectedGoal.name}. Keep that energy! 💜`,
+                            emoji: hitMilestone === 100 ? "👑" : "✨"
+                          });
+                          setShowMilestoneCelebration(true);
+                        }
+                      }
+                    } catch (err) {
+                      console.error("Failed to add deposit", err);
                     }
                   }
                   setShowAddToGoal(false); 
@@ -431,6 +628,96 @@ export default function GoalsScreen() {
                 style={{ backgroundColor: "#B76E79" }}
               >
                 <Text className="font-bold" style={{ color: "#FAF5EF" }}>Add 🌸</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showDatePicker} transparent animationType="slide">
+        <View className="flex-1 bg-black/50 justify-end">
+          <View
+            className="bg-background rounded-t-3xl p-6 gap-4 max-h-[90%]"
+            style={{ backgroundColor: colors.background }}
+          >
+            <View className="items-center mb-2">
+              <View className="w-12 h-1 bg-border rounded-full" />
+            </View>
+
+            <View>
+              <View className="flex-row items-center justify-between mb-4">
+                <Pressable onPress={() => goToMonth(-1)} className="px-3 py-2 rounded-full border border-border">
+                  <MaterialIcons name="chevron-left" size={20} color={colors.foreground} />
+                </Pressable>
+                <Text className="font-bold text-foreground">
+                  {pickerMonth.toLocaleString("default", { month: "long" })} {pickerMonth.getFullYear()}
+                </Text>
+                <Pressable onPress={() => goToMonth(1)} className="px-3 py-2 rounded-full border border-border">
+                  <MaterialIcons name="chevron-right" size={20} color={colors.foreground} />
+                </Pressable>
+              </View>
+
+              <View className="flex-row justify-between mb-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
+                  <Text key={label} className="text-[10px] text-muted text-center flex-1">
+                    {label}
+                  </Text>
+                ))}
+              </View>
+
+              <View className="flex-wrap flex-row">
+                {getCalendarDays().map((item) => {
+                  const isSelected = item.isValid && targetDate === formatIsoDate(item.date);
+                  return (
+                    <Pressable
+                      key={`${item.date.toISOString()}-${item.dayNumber}`}
+                      onPress={() => item.isFutureOrToday && handleDateSelect(item.date)}
+                      disabled={!item.isFutureOrToday}
+                      className="w-[14.28%] h-12 items-center justify-center rounded-full mb-2"
+                      style={{
+                        backgroundColor: item.isValid
+                          ? isSelected
+                            ? colors.primary
+                            : item.isFutureOrToday
+                              ? colors.surface
+                              : "transparent"
+                          : "transparent",
+                      }}
+                    >
+                      <Text
+                        className="text-xs"
+                        style={{
+                          color: item.isValid
+                            ? isSelected
+                              ? "white"
+                              : item.isFutureOrToday
+                                ? colors.foreground
+                                : colors.muted
+                            : "transparent",
+                        }}
+                      >
+                        {item.isValid ? item.dayNumber : ""}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View className="flex-row gap-3 mt-4">
+              <Pressable
+                onPress={() => setShowDatePicker(false)}
+                className="flex-1 border border-border rounded-lg py-4 items-center"
+              >
+                <Text className="text-foreground font-bold">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowDatePicker(false)}
+                className="flex-1 rounded-lg items-center overflow-hidden"
+              >
+                <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 w-full items-center justify-center">
+                  <Text className="text-white font-bold">Done</Text>
+                </LinearGradient>
               </Pressable>
             </View>
           </View>
@@ -598,13 +885,21 @@ export default function GoalsScreen() {
                       <Text className="text-sm font-semibold text-foreground mb-1">
                         By when?
                       </Text>
-                      <TextInput
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor={colors.muted}
-                        value={targetDate}
-                        onChangeText={setTargetDate}
-                        className="bg-surface rounded-lg px-4 py-3 text-foreground"
-                      />
+                      <Pressable
+                        onPress={() => {
+                          setShowDatePicker(true);
+                          setPickerMonth(new Date());
+                        }}
+                        className="bg-surface rounded-lg px-4 py-3 flex-row items-center justify-between"
+                        style={{ minHeight: 54 }}
+                      >
+                        <Text
+                          style={{ color: targetDate ? colors.foreground : colors.muted }}
+                        >
+                          {targetDate || "YYYY-MM-DD"}
+                        </Text>
+                        <MaterialIcons name="calendar-today" size={20} color={colors.muted} />
+                      </Pressable>
                     </View>
 
                     {/* MONTHLY AMOUNT */}
@@ -631,7 +926,7 @@ export default function GoalsScreen() {
                       style={{ backgroundColor: colors.primary + "20" }}
                     >
                       <Text className="text-xs text-primary">
-                        💡 Based on your income, saving ₦25,000/month gets you there in 6 months. You've got this. 🌸
+                        💡 {getDynamicSuggestion()}
                       </Text>
                     </View>
                   </View>
@@ -845,6 +1140,36 @@ export default function GoalsScreen() {
                         </Text>
                       </View>
                     </View>
+
+                    <View className="mt-4 rounded-3xl border border-border bg-surface p-4">
+                      <Text className="text-sm font-semibold text-foreground mb-3">
+                        Goal Timeline
+                      </Text>
+                      <View className="flex-row justify-between items-center mb-3">
+                        <Text className="text-xs text-muted">Target to save</Text>
+                        <Text className="text-sm font-bold text-foreground">
+                          ₦{(selectedGoal.target / 1000).toFixed(0)}k
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between items-center mb-3">
+                        <Text className="text-xs text-muted">Monthly savings</Text>
+                        <Text className="text-sm font-bold text-foreground">
+                          ₦{(selectedGoal.monthlyContribution / 1000).toFixed(0)}k
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between items-center">
+                        <Text className="text-xs text-muted">Estimated completion</Text>
+                        <Text className="text-sm font-bold text-foreground">
+                          {formatMonthText(
+                            estimateMonthsToTarget(
+                              selectedGoal.current,
+                              selectedGoal.target,
+                              selectedGoal.monthlyContribution,
+                            ),
+                          )}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
 
                   {/* TRANSACTION HISTORY */}
@@ -855,32 +1180,39 @@ export default function GoalsScreen() {
                     >
                       Deposits
                     </Text>
-                    {[
-                      { date: "Today", amount: 10000 },
-                      { date: "3 days ago", amount: 15000 },
-                      { date: "1 week ago", amount: 20000 },
-                      { date: "2 weeks ago", amount: 22500 },
-                    ].map((deposit, idx) => (
-                      <View
-                        key={idx}
-                        className="flex-row justify-between items-center bg-surface rounded-lg p-3"
-                      >
-                        <View>
+                    {dbDeposits && dbDeposits.length > 0 ? (
+                      dbDeposits.map((deposit: any, idx: number) => (
+                        <View
+                          key={deposit.id}
+                          className="flex-row justify-between items-center bg-surface rounded-lg p-3"
+                        >
+                          <View>
+                            <Text className="text-sm font-bold text-foreground">
+                              Deposit
+                            </Text>
+                            <Text className="text-xs text-muted">{deposit.date}</Text>
+                          </View>
                           <Text className="text-sm font-bold text-foreground">
-                            Deposit
+                            +₦{(deposit.amount / 1000).toFixed(0)}k
                           </Text>
-                          <Text className="text-xs text-muted">{deposit.date}</Text>
                         </View>
-                        <Text className="text-sm font-bold text-foreground">
-                          +₦{(deposit.amount / 1000).toFixed(0)}k
-                        </Text>
-                      </View>
-                    ))}
+                      ))
+                    ) : (
+                      <Text className="text-xs text-muted italic">No deposits yet. Start filling your goal! 🌸</Text>
+                    )}
                   </View>
 
                   <View className="px-6">
                     <Pressable
-                      onPress={() => {/* Add money logic */}}
+                      onPress={() => {
+                        if (!selectedGoal) return;
+                        const params = new URLSearchParams({
+                          goalName: selectedGoal.name,
+                          category: "Savings",
+                          source: "goal",
+                        }).toString();
+                        router.push(`/log?${params}`);
+                      }}
                       style={({ pressed }) => ({ 
                         opacity: pressed ? 0.8 : 1,
                         borderRadius: 16,

@@ -13,12 +13,15 @@ import {
   ajoCircles,
   ajoMembers,
   ajoContributions,
+  savingsDeposits,
   debts,
   investments,
   communityPosts,
   communityComments,
   ritualCompletions,
   users,
+  bills,
+  ajoMessages,
 } from "../../drizzle/schema.js";
 import type {
   Expense,
@@ -28,6 +31,8 @@ import type {
   CommunityPost,
   CommunityComment,
   RitualCompletion,
+  Bill,
+  AjoMessage,
 } from "../../drizzle/schema.js";
 
 /**
@@ -155,8 +160,69 @@ export async function getSavingsGoals(userId: number) {
 }
 
 export async function updateGoalProgress(goalId: string, amount: number) {
-  // Mock: Update goal progress
-  return { success: true };
+  const db = await getDb();
+  if (!db) {
+    console.warn("[DB] Fallback to mock for updateGoalProgress");
+    return { success: true };
+  }
+
+  const [goal] = await db.select().from(savingsGoals).where(eq(savingsGoals.id, goalId)).limit(1);
+  if (!goal) return { success: false, error: "Goal not found" };
+
+  const newAmount = goal.currentAmount + amount;
+  await db.update(savingsGoals)
+    .set({ currentAmount: newAmount })
+    .where(eq(savingsGoals.id, goalId));
+
+  return { success: true, newAmount };
+}
+
+export async function createSavingsDeposit(data: {
+  goalId: string;
+  userId: number;
+  amount: number;
+  date: string;
+}) {
+  const db = await getDb();
+  const id = crypto.randomUUID();
+
+  if (!db) {
+    console.warn("[DB] Fallback to mock for createSavingsDeposit");
+    return { id, ...data, createdAt: new Date() };
+  }
+
+  // Use a transaction to update both the deposit and the goal amount
+  return await db.transaction(async (tx) => {
+    const [newDeposit] = await tx.insert(savingsDeposits).values({
+      id,
+      ...data,
+    }).returning();
+
+    const [goal] = await tx.select().from(savingsGoals).where(eq(savingsGoals.id, data.goalId)).limit(1);
+    if (goal) {
+      await tx.update(savingsGoals)
+        .set({ currentAmount: goal.currentAmount + data.amount })
+        .where(eq(savingsGoals.id, data.goalId));
+    }
+
+    return newDeposit;
+  });
+}
+
+export async function getGoalDeposits(goalId: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[DB] Fallback to mock for getGoalDeposits");
+    return [
+      { date: "Today", amount: 10000 },
+      { date: "3 days ago", amount: 15000 },
+    ];
+  }
+
+  return await db.select()
+    .from(savingsDeposits)
+    .where(eq(savingsDeposits.goalId, goalId))
+    .orderBy(desc(savingsDeposits.createdAt));
 }
 
 /**
@@ -561,4 +627,192 @@ export async function recordAjoContribution(data: {
   }).returning();
 
   return newContribution;
+}
+
+export async function getAjoMessages(circleId: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select({
+    id: ajoMessages.id,
+    sender: users.name,
+    message: ajoMessages.message,
+    isSystem: ajoMessages.isSystem,
+    time: ajoMessages.createdAt,
+  })
+    .from(ajoMessages)
+    .innerJoin(users, eq(ajoMessages.userId, users.id))
+    .where(eq(ajoMessages.circleId, circleId))
+    .orderBy(desc(ajoMessages.createdAt))
+    .limit(50);
+}
+
+export async function sendAjoMessage(data: {
+  circleId: string;
+  userId: number;
+  message: string;
+  isSystem?: number;
+}) {
+  const db = await getDb();
+  const id = crypto.randomUUID();
+
+  if (!db) return { id, ...data, createdAt: new Date() };
+
+  const [newMessage] = await db.insert(ajoMessages).values({
+    id,
+    circleId: data.circleId,
+    userId: data.userId,
+    message: data.message,
+    isSystem: data.isSystem || 0,
+  }).returning();
+
+  return newMessage;
+}
+
+/**
+ * Bill Operations
+ */
+export async function getBills(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select()
+    .from(bills)
+    .where(eq(bills.userId, userId))
+    .orderBy(bills.dueDate);
+}
+
+export async function createBill(data: {
+  userId: number;
+  name: string;
+  amount: number;
+  dueDate: string;
+  category?: string;
+}) {
+  const db = await getDb();
+  const id = crypto.randomUUID();
+
+  if (!db) return { id, ...data, status: "pending", createdAt: new Date() };
+
+  const [newBill] = await db.insert(bills).values({
+    id,
+    ...data,
+    status: "pending",
+  }).returning();
+
+  return newBill;
+}
+
+/**
+ * Dashboard & Analytics
+ */
+export async function getDashboardStats(userId: number) {
+  const db = await getDb();
+  if (!db) {
+    return {
+      safeToSpend: 45000,
+      totalSaved: 140000,
+      weeklyAllowance: 60000,
+      plushScore: 74,
+      income: 320000,
+      spent: 180000,
+    };
+  }
+
+  // Calculate real stats
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const userExpenses = await db.select().from(expenses).where(eq(expenses.userId, userId));
+  const userGoals = await db.select().from(savingsGoals).where(eq(savingsGoals.userId, userId));
+  const userDeposits = await db.select().from(savingsDeposits).where(eq(savingsDeposits.userId, userId));
+  const userBills = await db.select().from(bills).where(eq(bills.userId, userId));
+
+  const totalSavedAllTime = userGoals.reduce((sum, g) => sum + g.currentAmount, 0);
+  
+  // Calculate Monthly Income from range
+  const incomeMap: Record<string, number> = {
+    A: 75000,
+    B: 175000,
+    C: 375000,
+    D: 750000,
+  };
+  const monthlyIncome = incomeMap[user?.monthlyIncomeRange || "C"] || 300000;
+  
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const spentThisMonth = userExpenses
+    .filter(e => {
+      if (e.type !== "expense") return false;
+      const d = new Date(e.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    })
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const savedThisMonth = userDeposits
+    .filter(d => {
+      const date = new Date(d.date);
+      return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    })
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  const monthlyBills = userBills.reduce((sum, b) => sum + b.amount, 0);
+
+  // Weekly calculations
+  const weeklyAllocationFromIncome = monthlyIncome / 4;
+  const weeklyBills = monthlyBills / 4;
+  const weeklySafeBase = Math.max(0, weeklyAllocationFromIncome - weeklyBills);
+  
+  // User's preferred weekly cap from onboarding
+  const weeklyCapValue = user?.weeklyCap || weeklySafeBase;
+
+  // Actual safe to spend for the week
+  // Logic: (Monthly Income - Monthly Savings - Monthly Bills - Actual Spent This Month) / remaining weeks
+  const remainingInMonth = Math.max(0, monthlyIncome - savedThisMonth - monthlyBills - spentThisMonth);
+  const weeksLeft = Math.max(1, 4 - (new Date().getDate() / 7));
+  const calculatedWeeklySafe = remainingInMonth / weeksLeft;
+
+  const plushScore = await calculatePlushScore(userId);
+
+  return {
+    safeToSpend: Math.min(calculatedWeeklySafe, weeklyCapValue),
+    totalSaved: totalSavedAllTime,
+    savedThisMonth: savedThisMonth,
+    weeklyAllowance: weeklyCapValue,
+    plushScore,
+    income: monthlyIncome,
+    spent: spentThisMonth,
+  };
+}
+
+export async function getDetailedSpendingBreakdown(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db.select({
+    category: expenses.category,
+    amount: sql<number>`sum(${expenses.amount})`,
+  })
+    .from(expenses)
+    .where(and(eq(expenses.userId, userId), eq(expenses.type, "expense")))
+    .groupBy(expenses.category);
+
+  return result;
+}
+
+export async function getLatestCommunityActivity() {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select({
+    id: communityPosts.id,
+    userId: communityPosts.userId,
+    userName: users.name,
+    content: communityPosts.content,
+    postType: communityPosts.postType,
+    createdAt: communityPosts.createdAt,
+  })
+    .from(communityPosts)
+    .innerJoin(users, eq(communityPosts.userId, users.id))
+    .orderBy(desc(communityPosts.createdAt))
+    .limit(1);
 }

@@ -6,11 +6,12 @@ import {
   Modal,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { cn } from "@/lib/utils";
 import { useSubscription } from "@/lib/revenuecat";
@@ -20,6 +21,8 @@ import { PlushModal } from "@/components/plush-modal";
 import { LinearGradient } from "expo-linear-gradient";
 import { GradientAvatar, PLUSH_GRADIENT } from "@/components/plush-gradient";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/hooks/use-auth";
+import * as Auth from "@/lib/_core/auth";
 
 // Brand colours
 const ROSE_GOLD = "#B76E79";
@@ -27,35 +30,7 @@ const DEEP_PLUM = "#4A1560";
 const CREAM = "#FAF5EF";
 const BLUSH_PINK = "#F4B8C1";
 
-// Mock data
-const MOCK_CIRCLES = [
-  {
-    id: "1",
-    name: "Lagos Soft Girls Ajo 🌸",
-    contribution: 10000,
-    frequency: "Weekly",
-    members: 5,
-    currentRound: 3,
-    totalRounds: 10,
-    currentRecipient: "Temi",
-    nextPaymentDate: "2024-03-29",
-    status: "active",
-    isPayoutDay: true,
-  },
-  {
-    id: "2",
-    name: "Office Circle 💼",
-    contribution: 15000,
-    frequency: "Biweekly",
-    members: 8,
-    currentRound: 2,
-    totalRounds: 8,
-    currentRecipient: "Chioma",
-    nextPaymentDate: "2024-04-05",
-    status: "active",
-    isPayoutDay: false,
-  },
-];
+// Mock data removed - using real tRPC queries
 
 const CIRCLE_SUGGESTIONS = [
   "Girls Ajo 🌸",
@@ -75,11 +50,6 @@ export default function AjoCircleScreen() {
   const [step, setStep] = useState(1);
   const [showChat, setShowChat] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState([
-    { id: "1", sender: "Temi", message: "Who's excited for payout day? 👑", time: "9:00 AM" },
-    { id: "2", sender: "Chioma", message: "Me!! Already paid mine. ✅", time: "9:15 AM" },
-    { id: "3", sender: "Plush AI", message: "Soft Reminder: 3 members still have pending payments for Round 3. 🌸", time: "10:00 AM", isSystem: true },
-  ]);
 
   // Form state
   const [circleName, setCircleName] = useState("");
@@ -91,6 +61,9 @@ export default function AjoCircleScreen() {
   const [joinCode, setJoinCode] = useState("");
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState({ title: "", subtitle: "" });
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState(new Date());
+  const [sliderWidth, setSliderWidth] = useState(0);
   const [errorModal, setErrorModal] = useState<{ visible: boolean; title: string; message: string }>({
     visible: false,
     title: "",
@@ -98,9 +71,57 @@ export default function AjoCircleScreen() {
   });
   const { isPremium, loading: subLoading } = useSubscription();
 
+  const minCircleMembers = 2;
+  const maxCircleMembers = 20;
+  const memberCount = Math.max(minCircleMembers, Math.min(maxCircleMembers, Number(maxMembers) || minCircleMembers));
+
+  const formatIsoDate = (date: Date) => date.toISOString().slice(0, 10);
+  const getDateOnly = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const todayOnly = getDateOnly(new Date());
+  const isSameDay = (a: Date, b: Date | null) =>
+    b !== null &&
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  const getCalendarDays = () => {
+    const month = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), 1);
+    const firstWeekday = month.getDay();
+    const daysInMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 0).getDate();
+    const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+
+    return Array.from({ length: totalCells }, (_, index) => {
+      const dayNumber = index - firstWeekday + 1;
+      const date = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth(), dayNumber);
+      return {
+        dayNumber,
+        date,
+        isValid: dayNumber >= 1 && dayNumber <= daysInMonth,
+        isFutureOrToday:
+          dayNumber >= 1 &&
+          dayNumber <= daysInMonth &&
+          getDateOnly(date) >= todayOnly,
+      };
+    });
+  };
+
+  const handleStartDateSelect = (date: Date) => {
+    setStartDate(formatIsoDate(date));
+    setShowStartDatePicker(false);
+  };
+
+  const selectedStartDate = startDate ? new Date(startDate) : null;
+
+  const goToMonth = (delta: number) => {
+    setPickerMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+  };
+
   // tRPC Hooks
+  const { user, loading: authLoading } = useAuth();
   const utils = trpc.useContext();
-  const { data: circles, isLoading: circlesLoading } = trpc.plush.ajo.list.useQuery();
+  const { data: circles, isLoading: circlesLoading, error: circlesError } = trpc.plush.ajo.list.useQuery(undefined, {
+    enabled: !!user,
+  });
   const createMutation = trpc.plush.ajo.create.useMutation({
     onSuccess: () => {
       utils.plush.ajo.list.invalidate();
@@ -120,6 +141,24 @@ export default function AjoCircleScreen() {
   const { data: selectedCircleDetails, isLoading: detailsLoading } = trpc.plush.ajo.details.useQuery(
     { circleId: showDetailView || "" },
     { enabled: !!showDetailView }
+  );
+
+  const { data: chatHistoryData, refetch: refetchChat } = trpc.plush.ajo.getMessages.useQuery(
+    { circleId: showDetailView || "" },
+    { enabled: !!showDetailView && showChat, placeholderData: [] }
+  );
+
+  const sendMessageMutation = trpc.plush.ajo.sendMessage.useMutation({
+    onSuccess: () => {
+      refetchChat();
+    },
+  });
+
+  const chatHistory = chatHistoryData || [];
+
+  const isUnauthorized = Boolean(
+    circlesError?.data?.code === "UNAUTHORIZED" ||
+    circlesError?.message?.toLowerCase().includes("unauthorized")
   );
 
   const handleUnlock = () => {
@@ -145,6 +184,15 @@ export default function AjoCircleScreen() {
   };
 
   const handleCompleteCircle = async () => {
+    if (!user) {
+      setErrorModal({
+        visible: true,
+        title: "Sign in required",
+        message: "You need to be signed in to create an Ajo Circle. Please sign in and try again.",
+      });
+      return;
+    }
+
     try {
       const newCircle = await createMutation.mutateAsync({
         name: circleName,
@@ -166,7 +214,10 @@ export default function AjoCircleScreen() {
       setErrorModal({
         visible: true,
         title: "Creation Error",
-        message: err.message || "Something went wrong, sis 🌸",
+        message:
+          err?.message?.includes("Unauthorized") || err?.data?.code === "UNAUTHORIZED"
+            ? "Your session expired. Please sign in again."
+            : err.message || "Something went wrong, sis 🌸",
       });
     }
   };
@@ -196,6 +247,40 @@ export default function AjoCircleScreen() {
       });
     }
   };
+
+  if (authLoading) {
+    return (
+      <ScreenContainer className="bg-background items-center justify-center">
+        <ActivityIndicator size="large" color="#4A1560" />
+      </ScreenContainer>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ScreenContainer className="bg-background items-center justify-center px-6">
+        <Text className="text-xl font-bold text-foreground text-center">
+          You need to sign in to use Ajo Circles.
+        </Text>
+        <Text className="text-sm text-muted text-center mt-3">
+          Sign in and come back to create or join a circle with your girls.
+        </Text>
+        <Pressable
+          onPress={() => router.push("/auth")}
+          className="mt-6 rounded-full overflow-hidden"
+        >
+          <LinearGradient
+            colors={PLUSH_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="py-4 px-8 items-center justify-center"
+          >
+            <Text className="text-white font-bold">Sign in to continue</Text>
+          </LinearGradient>
+        </Pressable>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer className="bg-background">
@@ -489,37 +574,109 @@ export default function AjoCircleScreen() {
                         <Text className="text-sm font-semibold text-foreground mb-2">
                           Frequency
                         </Text>
-                        <View className="flex-row gap-2">
-                          {["Weekly", "Biweekly", "Monthly"].map((freq) => (
+                        <View style={{ flexDirection: "row" }}>
+                          {["Weekly", "Biweekly", "Monthly"].map((freq, index) => (
                             <Pressable
                               key={freq}
                               onPress={() => setFrequency(freq)}
-                              className="flex-1 py-3 rounded-lg items-center"
                               style={{
-                                backgroundColor:
-                                  frequency === freq ? colors.primary : colors.surface,
+                                flex: 1,
+                                minHeight: 48,
+                                borderRadius: 16,
+                                overflow: "hidden",
+                                marginRight: index < 2 ? 8 : 0,
                               }}
                             >
-                              <Text
-                                className="font-semibold text-sm"
-                                style={{
-                                  color: frequency === freq ? "white" : colors.muted,
-                                }}
-                              >
-                                {freq}
-                              </Text>
+                              {frequency === freq ? (
+                                <LinearGradient
+                                  colors={PLUSH_GRADIENT}
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 1 }}
+                                  style={{
+                                    flex: 1,
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <Text className="font-semibold text-sm text-white">{freq}</Text>
+                                </LinearGradient>
+                              ) : (
+                                <View
+                                  style={{
+                                    flex: 1,
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    backgroundColor: colors.surface,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                  }}
+                                >
+                                  <Text className="font-semibold text-sm text-muted">{freq}</Text>
+                                </View>
+                              )}
                             </Pressable>
                           ))}
                         </View>
                       </View>
 
-                      {/* MAX MEMBERS */}
+                      {/* MINIMUM MEMBERS */}
                       <View>
                         <Text className="text-sm font-semibold text-foreground mb-1">
-                          Maximum members: {maxMembers}
+                          Minimum members: {memberCount}
                         </Text>
-                        <View className="bg-surface rounded-lg px-4 py-3">
-                          <Text className="text-foreground">Slider: 2–20 members</Text>
+                        <View className="bg-surface rounded-2xl px-3 py-3">
+                          <View className="flex-row items-center justify-between mb-3">
+                            <Text className="text-xs text-muted">2</Text>
+                            <Text className="text-xs text-muted">{memberCount}</Text>
+                            <Text className="text-xs text-muted">20</Text>
+                          </View>
+                          <View
+                            className="rounded-full"
+                            onLayout={(event) => setSliderWidth(event.nativeEvent.layout.width)}
+                            style={{
+                              backgroundColor: colors.border,
+                              height: 10,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <Pressable
+                              onPress={(event) => {
+                                if (!sliderWidth) return;
+                                const x = event.nativeEvent.locationX;
+                                const ratio = Math.max(0, Math.min(1, x / sliderWidth));
+                                const value = Math.round(minCircleMembers + ratio * (maxCircleMembers - minCircleMembers));
+                                setMaxMembers(String(value));
+                              }}
+                              style={{ width: "100%", height: "100%" }}
+                            >
+                              <View
+                                style={{
+                                  width: `${((memberCount - minCircleMembers) / (maxCircleMembers - minCircleMembers)) * 100}%`,
+                                  height: "100%",
+                                  backgroundColor: colors.primary,
+                                }}
+                              />
+                              <View
+                                style={{
+                                  position: "absolute",
+                                  left: `${((memberCount - minCircleMembers) / (maxCircleMembers - minCircleMembers)) * 100}%`,
+                                  top: -7,
+                                  transform: [{ translateX: -12 }],
+                                }}
+                              >
+                                <View
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 12,
+                                    backgroundColor: colors.primary,
+                                    borderWidth: 3,
+                                    borderColor: colors.background,
+                                  }}
+                                />
+                              </View>
+                            </Pressable>
+                          </View>
                         </View>
                       </View>
 
@@ -528,13 +685,16 @@ export default function AjoCircleScreen() {
                         <Text className="text-sm font-semibold text-foreground mb-1">
                           Start date
                         </Text>
-                        <TextInput
-                          placeholder="YYYY-MM-DD"
-                          placeholderTextColor={colors.muted}
-                          value={startDate}
-                          onChangeText={setStartDate}
-                          className="bg-surface rounded-lg px-4 py-3 text-foreground"
-                        />
+                        <Pressable
+                          onPress={() => setShowStartDatePicker(true)}
+                          className="flex-row items-center justify-between bg-surface rounded-lg px-4 py-3"
+                          style={{ borderWidth: 1, borderColor: colors.border }}
+                        >
+                          <Text className="text-foreground">
+                            {startDate || "Choose a start date"}
+                          </Text>
+                          <MaterialIcons name="calendar-today" size={20} color={colors.muted} />
+                        </Pressable>
                       </View>
 
                       {/* PAYOUT ORDER */}
@@ -675,6 +835,96 @@ export default function AjoCircleScreen() {
                   </>
                 )}
               </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={showStartDatePicker} transparent animationType="slide">
+          <View className="flex-1 bg-black/50 justify-end">
+            <View
+              className="bg-background rounded-t-3xl p-6 gap-4 max-h-[90%]"
+              style={{ backgroundColor: colors.background }}
+            >
+              <View className="items-center mb-2">
+                <View className="w-12 h-1 bg-border rounded-full" />
+              </View>
+
+              <View>
+                <View className="flex-row items-center justify-between mb-4">
+                  <Pressable onPress={() => goToMonth(-1)} className="px-3 py-2 rounded-full border border-border">
+                    <MaterialIcons name="chevron-left" size={20} color={colors.foreground} />
+                  </Pressable>
+                  <Text className="font-bold text-foreground">
+                    {pickerMonth.toLocaleString("default", { month: "long" })} {pickerMonth.getFullYear()}
+                  </Text>
+                  <Pressable onPress={() => goToMonth(1)} className="px-3 py-2 rounded-full border border-border">
+                    <MaterialIcons name="chevron-right" size={20} color={colors.foreground} />
+                  </Pressable>
+                </View>
+
+                <View className="flex-row justify-between mb-2">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
+                    <Text key={label} className="text-[10px] text-muted text-center flex-1">
+                      {label}
+                    </Text>
+                  ))}
+                </View>
+
+                <View className="flex-wrap flex-row">
+                  {getCalendarDays().map((item) => {
+                    const isSelected = item.isValid && isSameDay(item.date, selectedStartDate);
+                    return (
+                      <Pressable
+                        key={`${item.date.toISOString()}-${item.dayNumber}`}
+                        onPress={() => item.isFutureOrToday && handleStartDateSelect(item.date)}
+                        disabled={!item.isFutureOrToday}
+                        className="w-[14.28%] h-12 items-center justify-center rounded-full mb-2"
+                        style={{
+                          backgroundColor: item.isValid
+                            ? isSelected
+                              ? colors.primary
+                              : item.isFutureOrToday
+                                ? colors.surface
+                                : "transparent"
+                            : "transparent",
+                        }}
+                      >
+                        <Text
+                          className="text-xs"
+                          style={{
+                            color: item.isValid
+                              ? isSelected
+                                ? "white"
+                                : item.isFutureOrToday
+                                  ? colors.foreground
+                                  : colors.muted
+                              : "transparent",
+                          }}
+                        >
+                          {item.isValid ? item.dayNumber : ""}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View className="flex-row gap-3 mt-4">
+                <Pressable
+                  onPress={() => setShowStartDatePicker(false)}
+                  className="flex-1 border border-border rounded-lg py-4 items-center"
+                >
+                  <Text className="text-foreground font-bold">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setShowStartDatePicker(false)}
+                  className="flex-1 rounded-lg items-center overflow-hidden"
+                >
+                  <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="py-4 w-full items-center justify-center">
+                    <Text className="text-white font-bold">Done</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
             </View>
           </View>
         </Modal>
@@ -1012,7 +1262,9 @@ export default function AjoCircleScreen() {
                     <Text className={cn("text-sm", msg.isSystem ? "text-primary italic text-center text-xs" : "text-foreground")}>
                       {msg.message}
                     </Text>
-                    <Text className="text-[8px] text-muted mt-1 text-right">{msg.time}</Text>
+                    <Text className="text-[8px] text-muted mt-1 text-right">
+                      {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
                   </View>
                 ))}
               </ScrollView>
@@ -1027,17 +1279,21 @@ export default function AjoCircleScreen() {
                   className="flex-1 bg-surface rounded-full px-4 py-3 text-sm text-foreground"
                 />
                 <Pressable 
-                  onPress={() => {
-                    if (chatMessage.trim()) {
-                      setChatHistory([...chatHistory, {
-                        id: Date.now().toString(),
-                        sender: "You",
-                        message: chatMessage,
-                        time: "Now"
-                      }]);
+                  onPress={async () => {
+                    if (chatMessage.trim() && showDetailView) {
+                      const msg = chatMessage;
                       setChatMessage("");
+                      try {
+                        await sendMessageMutation.mutateAsync({
+                          circleId: showDetailView,
+                          message: msg,
+                        });
+                      } catch (err) {
+                        Alert.alert("Error", "Could not send message 🌸");
+                      }
                     }
                   }}
+                  disabled={sendMessageMutation.isPending}
                   className="w-12 h-12 rounded-full overflow-hidden items-center justify-center"
                 >
                   <LinearGradient colors={PLUSH_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="w-full h-full items-center justify-center">

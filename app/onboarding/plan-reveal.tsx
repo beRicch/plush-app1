@@ -1,12 +1,52 @@
 import { Text, View, Pressable, ScrollView } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { cn } from "@/lib/utils";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
 
 export default function PlanRevealScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+
+  const targetGoal = Number(params.targetGoal ?? "500000");
+  const targetDate = String(params.targetDate ?? "September 2026");
+  const monthlyTarget = Number(params.monthlyTarget ?? "") || Math.ceil(targetGoal / 6);
+  const allowance = Number(params.allowance ?? "40000");
+  const ritual = String(params.ritual ?? "Weekly Logging Ritual");
+  const ritualDetail = String(params.ritualDetail ?? "Every Sunday at 7 PM");
+
+  const parseTargetMonth = (dateString: string) => {
+    const parsed = new Date(dateString);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleString("en-US", { month: "long" });
+    }
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    const today = new Date();
+    const futureDate = new Date(today);
+    futureDate.setMonth(today.getMonth() + Math.max(1, Math.ceil(targetGoal / monthlyTarget)));
+    return monthNames[futureDate.getMonth()];
+  };
+
+  const timelineMonth = parseTargetMonth(targetDate);
+  const timelineSubtitle = `Achievable by ${timelineMonth}`;
+
+  const formatCurrency = (value: number) => {
+    return `₦${value.toLocaleString("en-NG")}`;
+  };
 
   const handleContinue = () => {
     router.push("../auth");
@@ -37,9 +77,9 @@ export default function PlanRevealScreen() {
           <View className="bg-surface border-2 border-primary rounded-3xl p-6 gap-6 shadow-sm">
             <View className="gap-2 items-center border-b border-border pb-6">
               <Text className="font-dm-sans font-bold tracking-widest text-muted uppercase text-[10px]">Target Goal</Text>
-              <Text className="font-playfair text-4xl font-bold text-foreground">₦500,000</Text>
+              <Text className="font-playfair text-4xl font-bold text-foreground">{formatCurrency(targetGoal)}</Text>
               <View className="bg-accent rounded-full px-3 py-1 mt-1">
-                <Text className="font-dm-sans text-xs font-semibold text-background">By September 2026</Text>
+                <Text className="font-dm-sans text-xs font-semibold text-background">By {targetDate}</Text>
               </View>
             </View>
 
@@ -50,7 +90,7 @@ export default function PlanRevealScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="font-dm-sans text-sm font-semibold text-foreground">Monthly Savings Target</Text>
-                  <Text className="font-dm-sans text-xs text-muted mt-0.5">₦85,000 / month</Text>
+                  <Text className="font-dm-sans text-xs text-muted mt-0.5">{formatCurrency(monthlyTarget)} / month</Text>
                 </View>
               </View>
 
@@ -60,7 +100,7 @@ export default function PlanRevealScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="font-dm-sans text-sm font-semibold text-foreground">Guilt-Free Allowance</Text>
-                  <Text className="font-dm-sans text-xs text-muted mt-0.5">₦40,000 / month</Text>
+                  <Text className="font-dm-sans text-xs text-muted mt-0.5">{formatCurrency(allowance)} / month</Text>
                 </View>
               </View>
 
@@ -69,14 +109,24 @@ export default function PlanRevealScreen() {
                   <Text className="text-xl">✨</Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="font-dm-sans text-sm font-semibold text-foreground">Weekly Logging Ritual</Text>
-                  <Text className="font-dm-sans text-xs text-muted mt-0.5">Every Sunday at 7 PM</Text>
+                  <Text className="font-dm-sans text-sm font-semibold text-foreground">{ritual}</Text>
+                  <Text className="font-dm-sans text-xs text-muted mt-0.5">{ritualDetail}</Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center gap-4">
+                <View className="w-12 h-12 bg-surface border border-border rounded-full items-center justify-center">
+                  <Text className="text-lg">🗓️</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="font-dm-sans text-sm font-semibold text-foreground">Goal timeline</Text>
+                  <Text className="font-dm-sans text-xs text-muted mt-0.5">{timelineSubtitle}</Text>
                 </View>
               </View>
             </View>
           </View>
 
-          <Text className="text-accent-script text-center text-xl mt-2 leading-relaxed px-4">
+          <Text className="text-accent-script text-center text-[13px] mt-2 leading-relaxed px-4">
             Plush members who follow this exact plan are 2.5x more likely to hit their target.
           </Text>
 

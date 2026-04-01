@@ -8,13 +8,16 @@ import {
   Share,
   Animated,
   Easing,
+  Platform,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useThemeContext } from "@/lib/theme-provider";
 import { useState, useEffect, useRef } from "react";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { supabase } from "@/lib/supabase";
+import * as Api from "@/lib/_core/api";
+import * as Auth from "@/lib/_core/auth";
+import * as Linking from "expo-linking";
 import Svg, { Circle, Polyline } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -79,6 +82,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const colors = useColors();
   const { data: user } = trpc.auth.me.useQuery();
+  const [localUser, setLocalUser] = useState<Auth.User | null>(null);
   const { colorScheme, setColorScheme } = useThemeContext();
   const [showSettings, setShowSettings] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
@@ -93,6 +97,41 @@ export default function ProfileScreen() {
     biometric: true,
     appLock: false,
   });
+
+  const deleteAccountMutation = trpc.plush.profile.deleteAccount.useMutation();
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account 🌸",
+      "Are you sure, sis? This will permanently delete your vault, expenses, and all your progress. This cannot be undone.",
+      [
+        { text: "Keep My Vault", style: "cancel" },
+        { 
+          text: "Delete permanently", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAccountMutation.mutateAsync();
+              await Auth.removeSessionToken();
+              await Auth.clearUserInfo();
+              router.replace("/");
+              Alert.alert("Account Deleted", "Your data has been permanently removed. We'll miss you! 🌸");
+            } catch (error) {
+              console.error("Failed to delete account:", error);
+              Alert.alert("Error", "Something went wrong. Please try again later.");
+            }
+          }
+        },
+      ]
+    );
+  };
+   
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    Auth.getUserInfo()
+      .then((cached) => setLocalUser(cached))
+      .catch((error) => console.error("Failed to load cached user:", error));
+  }, []);
 
   const handleShare = async (text: string) => {
     try {
@@ -123,11 +162,11 @@ export default function ProfileScreen() {
           {/* ─── PROFILE HEADER ─────────────────────────────────── */}
           <View style={{ paddingHorizontal: 24, paddingTop: 16, gap: 16, alignItems: "center" }}>
             {/* FIX 8 — Branded user initials avatar (gradient) */}
-            <GradientAvatar name={user?.name || "Amara Okonkwo"} size={96} borderColor={ROSE_GOLD} />
+            <GradientAvatar name={user?.name || localUser?.name || "Amara Okonkwo"} size={96} borderColor={ROSE_GOLD} />
 
             <View style={{ alignItems: "center", gap: 4 }}>
               <Text style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 24, color: colors.foreground }}>
-                {user?.name ? user.name : "Amara Okonkwo"}
+                {user?.name || localUser?.name || "Amara Okonkwo"}
               </Text>
               {/* FIX 9 — Archetype label color (80% opacity) */}
               <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 13, color: `${DEEP_PLUM}CC` }}>
@@ -213,17 +252,21 @@ export default function ProfileScreen() {
 
                 {/* FIX 12 — Buttons: 52px height, 16px radius */}
                 <View style={{ flexDirection: "row", gap: 8 }}>
-                  <LinearGradient
-                    colors={PLUSH_GRADIENT}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      flex: 1, height: 52, borderRadius: 16,
-                      alignItems: "center", justifyContent: "center",
-                    }}
+                  <Pressable
+                    onPress={handleCopyReferralCode}
+                    style={{ flex: 1, height: 52, borderRadius: 16, overflow: "hidden" }}
                   >
-                    <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 15, color: CREAM }}>Copy Code</Text>
-                  </LinearGradient>
+                    <LinearGradient
+                      colors={PLUSH_GRADIENT}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={{
+                        flex: 1, alignItems: "center", justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 15, color: CREAM }}>Copy Code</Text>
+                    </LinearGradient>
+                  </Pressable>
                   <Pressable
                     onPress={() => handleShare("Join me on Plush! Use code SOFT-AMARA to get ₦500 off 🌸")}
                     style={{
@@ -304,17 +347,17 @@ export default function ProfileScreen() {
               Settings
             </Text>
 
-            <Pressable
-              onPress={() => setShowSettings(true)}
+            <View
               style={{ borderRadius: 16, padding: 16, gap: 4, backgroundColor: colors.surface }}
             >
               {SETTINGS_ROWS.map((row, idx) => (
-                <View
+                <Pressable
                   key={idx}
+                  onPress={() => setShowSettings(true)}
                   style={{
                     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
                     paddingVertical: 12,
-                    borderBottomWidth: idx < SETTINGS_ROWS.length - 1 ? 1 : 0,
+                    borderBottomWidth: 1,
                     borderBottomColor: colors.border,
                   }}
                 >
@@ -326,11 +369,14 @@ export default function ProfileScreen() {
                     </Text>
                   </View>
                   <MaterialIcons name="chevron-right" size={18} color={`${DEEP_PLUM}59`} />
-                </View>
+                </Pressable>
               ))}
 
               {/* Delete Account row */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12 }}>
+              <Pressable 
+                onPress={handleDeleteAccount}
+                style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12 }}
+              >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                   <MaterialIcons name="delete-outline" size={22} color={`${DEEP_PLUM}B3`} />
                   <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>
@@ -338,8 +384,8 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={18} color={`${DEEP_PLUM}59`} />
-              </View>
-            </Pressable>
+              </Pressable>
+            </View>
           </View>
 
           {/* ─── FIX 6 — LOGOUT (text-only) ─────────────────────── */}
@@ -352,7 +398,13 @@ export default function ProfileScreen() {
                     text: "Logout", 
                     style: "destructive",
                     onPress: async () => {
-                      await supabase.auth.signOut();
+                      try {
+                        await Api.logout();
+                      } catch (error) {
+                        console.warn("Logout API failed", error);
+                      }
+                      await Auth.removeSessionToken();
+                      await Auth.clearUserInfo();
                       router.replace("/");
                     }
                   },
@@ -535,22 +587,28 @@ export default function ProfileScreen() {
               <View style={{ gap: 12, marginBottom: 40 }}>
                 <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: colors.foreground }}>Legal & About</Text>
                 {[
-                  { label: "Privacy Policy" },
-                  { label: "Terms of Service" },
+                  { label: "Privacy Policy", url: "https://plushapp-qtcs3erk.manus.space/privacy" },
+                  { label: "Terms of Service", url: "https://plushapp-qtcs3erk.manus.space/terms" },
                   { label: "Open Source Licenses" },
                 ].map((item, idx) => (
-                  <View
+                  <Pressable
                     key={idx}
+                    onPress={() => item.url && Linking.openURL(item.url)}
+                    android_ripple={{ color: `${colors.border}22` }}
                     style={{
-                      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                      padding: 12, borderRadius: 12, backgroundColor: colors.surface,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: 12,
+                      borderRadius: 12,
+                      backgroundColor: colors.surface,
                     }}
                   >
                     <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: colors.foreground }}>
                       {item.label}
                     </Text>
                     <MaterialIcons name="chevron-right" size={18} color={`${DEEP_PLUM}59`} />
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             </ScrollView>

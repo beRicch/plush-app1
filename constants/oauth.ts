@@ -35,22 +35,30 @@ export function getApiBaseUrl(): string {
     return API_BASE_URL.replace(/\/$/, "");
   }
 
-  // On web, derive from current hostname by replacing port 8081 with 3000
+  // On web, derive from current hostname
   if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
     const { protocol, hostname } = window.location;
-    // Pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
     const apiHostname = hostname.replace(/^8081-/, "3000-");
     if (apiHostname !== hostname) {
       return `${protocol}//${apiHostname}`;
     }
   }
 
-  // Fallback to empty (will use relative URL)
+  // On native, we can't use local relative URLs. 
+  // If no env var, we'll try a common local IP pattern as a last resort, 
+  // but ideally the user should set EXPO_PUBLIC_API_BASE_URL.
+  if (ReactNative.Platform.OS !== "web") {
+    // We return a string that can be used. If it's empty, tRPC will fail gracefully.
+    return API_BASE_URL || "";
+  }
+
+  // Fallback to empty (will use relative URL on web)
   return "";
 }
 
 export const SESSION_TOKEN_KEY = "app_session_token";
 export const USER_INFO_KEY = "manus-runtime-user-info";
+export const HAS_COMPLETED_ONBOARDING_KEY = "plush-has-completed-onboarding";
 
 const encodeState = (value: string) => {
   if (typeof globalThis.btoa === "function") {
@@ -82,7 +90,13 @@ export const getLoginUrl = () => {
   const redirectUri = getRedirectUri();
   const state = encodeState(redirectUri);
 
-  const url = new URL(`${OAUTH_PORTAL_URL}/app-auth`);
+  if (!OAUTH_PORTAL_URL) {
+    throw new Error(
+      "OAuth portal URL is not configured. Set EXPO_PUBLIC_OAUTH_PORTAL_URL or VITE_OAUTH_PORTAL_URL in your environment.",
+    );
+  }
+
+  const url = new URL(`${OAUTH_PORTAL_URL.replace(/\/$/, "")}/app-auth`);
   url.searchParams.set("appId", APP_ID);
   url.searchParams.set("redirectUri", redirectUri);
   url.searchParams.set("state", state);

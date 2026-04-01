@@ -49,7 +49,12 @@ export default function OAuthCallback() {
                 openId: userData.openId,
                 name: userData.name,
                 email: userData.email,
+                phone: userData.phone ?? null,
+                avatarUrl: userData.avatarUrl ?? null,
                 loginMethod: userData.loginMethod,
+                moneyPersonality: userData.moneyPersonality ?? null,
+                monthlyIncomeRange: userData.monthlyIncomeRange ?? null,
+                subscriptionTier: userData.subscriptionTier ?? "free",
                 lastSignedIn: new Date(userData.lastSignedIn || Date.now()),
               };
               await Auth.setUserInfo(userInfo);
@@ -200,7 +205,12 @@ export default function OAuthCallback() {
               openId: result.user.openId,
               name: result.user.name,
               email: result.user.email,
+              phone: result.user.phone ?? null,
+              avatarUrl: result.user.avatarUrl ?? null,
               loginMethod: result.user.loginMethod,
+              moneyPersonality: result.user.moneyPersonality ?? null,
+              monthlyIncomeRange: result.user.monthlyIncomeRange ?? null,
+              subscriptionTier: result.user.subscriptionTier ?? "free",
               lastSignedIn: new Date(result.user.lastSignedIn || Date.now()),
             };
             await Auth.setUserInfo(userInfo);

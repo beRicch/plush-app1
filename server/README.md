@@ -593,6 +593,7 @@ Expo runtime variables (prefixed with `EXPO_PUBLIC_`):
 | `EXPO_PUBLIC_APP_ID` | App ID for OAuth |
 | `EXPO_PUBLIC_API_BASE_URL` | API server URL |
 | `EXPO_PUBLIC_OAUTH_PORTAL_URL` | Login portal URL |
+| `PUBLIC_FRONTEND_URL` | Deployed frontend URL for OAuth redirect |
 
 ---
 

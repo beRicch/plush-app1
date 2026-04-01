@@ -2,6 +2,7 @@ import { Text, View, Dimensions } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
+import * as ExpoSplashScreen from "expo-splash-screen";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,6 +12,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { LinearGradient } from "expo-linear-gradient";
+import { HAS_COMPLETED_ONBOARDING_KEY } from "@/constants/oauth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getSessionToken } from "@/lib/_core/auth";
 import Svg, { Circle } from "react-native-svg";
 
 const { width, height } = Dimensions.get("window");
@@ -39,11 +43,43 @@ export default function SplashScreen() {
       true
     );
 
-    const timer = setTimeout(() => {
-      router.push("/onboarding/welcome");
-    }, 2800);
+    let timeoutHandle: NodeJS.Timeout | number;
 
-    return () => clearTimeout(timer);
+    async function checkUserStatusAndRedirect() {
+      try {
+        const [hasCompletedOnboarding, sessionToken] = await Promise.all([
+          AsyncStorage.getItem(HAS_COMPLETED_ONBOARDING_KEY),
+          getSessionToken(),
+        ]);
+
+        const isReturningUser = hasCompletedOnboarding === "true" || !!sessionToken;
+
+        // Give the splash screen a moment to show the animation (min 2.8s total)
+        timeoutHandle = setTimeout(async () => {
+          await ExpoSplashScreen.hideAsync().catch(() => {});
+          if (isReturningUser) {
+            router.replace("/auth");
+          } else {
+            router.push("/onboarding/welcome");
+          }
+        }, 2800);
+      } catch (error) {
+        console.error("[Splash] Failed to check user status:", error);
+        // Fallback to onboarding for safety
+        timeoutHandle = setTimeout(async () => {
+          await ExpoSplashScreen.hideAsync().catch(() => {});
+          router.push("/onboarding/welcome");
+        }, 2800);
+      }
+    }
+
+    checkUserStatusAndRedirect();
+
+    return () => {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle as ReturnType<typeof setTimeout>);
+      }
+    };
   }, [router]);
 
   const animatedTitleStyle = useAnimatedStyle(() => ({
@@ -63,13 +99,12 @@ export default function SplashScreen() {
   
   // Brand Colors
   const DEEP_PLUM = "#4A1560";
-  const VIBRANT_PURPLE = "#6A1B8A";
-  const SOFT_LAVENDER = "#7A288A";
+  const PLUM_GRADIENT = ["#3D0E4F", "#4A1560", "#6A1B8A"] as const;
 
   return (
     <View className="flex-1">
       <LinearGradient
-        colors={isLight ? ["#FAF5EF", "#F4B8C1"] : [DEEP_PLUM, VIBRANT_PURPLE, SOFT_LAVENDER]}
+        colors={isLight ? ["#4A1560", "#5E1A72", "#7A2C92"] : PLUM_GRADIENT}
         style={{ flex: 1 }}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -109,23 +144,41 @@ export default function SplashScreen() {
             <Animated.View style={animatedTitleStyle} className="items-center">
               {/* Flower Icon */}
               <View className="mb-4">
-                <Text style={{ fontSize: 64 }}>🌸</Text>
+                <Text style={{ fontSize: 74, color: "white" }}>🌸</Text>
               </View>
-              {/* Main Text: Plush */}
-              <Text
-                className={isLight ? "font-bold text-foreground tracking-wider" : "font-bold text-white tracking-wider"}
-                style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 65, letterSpacing: -2 }}
-              >
-                Plush
-              </Text>
-              {/* Tagline */}
-              <Text
-                className={isLight ? "text-primary text-center mt-3 font-playfair italic" : "text-background text-center mt-3 font-playfair italic"}
-                style={{ fontSize: 17, opacity: 0.9 }}
-              >
-                Your money shouldn't be a mystery.
-              </Text>
             </Animated.View>
+          </View>
+
+          <View
+            style={{
+              position: "absolute",
+              bottom: 48,
+              left: 0,
+              right: 0,
+              alignItems: "center",
+              paddingHorizontal: 24,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "PlayfairDisplay_700Bold",
+                fontSize: 35,
+                fontWeight: "700",
+                color: "white",
+              }}
+            >
+              Plush
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: "rgba(255,255,255,0.85)",
+                textAlign: "center",
+                marginTop: 8,
+              }}
+            >
+              Soft Life Secure
+            </Text>
           </View>
         </ScreenContainer>
       </LinearGradient>

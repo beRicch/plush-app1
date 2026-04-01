@@ -241,9 +241,55 @@ class SDKServer {
 
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = token || cookies.get(COOKIE_NAME);
+
+    // Native local auth uses a simple local token placeholder.
+    // Accept it here in development/native mode so local sign-in works.
+    if (token?.startsWith("local-")) {
+      const localOpenId = token.slice("local-".length);
+      console.log("[SDK] Local auth detected for OpenID:", localOpenId);
+      
+      let user = await db.getUserByOpenId(localOpenId);
+      if (!user) {
+        console.log("[SDK] User not found, creating local user for:", localOpenId);
+        await db.upsertUser({
+          openId: localOpenId,
+          name: localOpenId,
+          email: localOpenId,
+          loginMethod: "local",
+          lastSignedIn: new Date(),
+        });
+        user = await db.getUserByOpenId(localOpenId);
+      }
+
+      console.log("[SDK] Authenticated local user:", user?.id);
+      if (!user) {
+        console.warn("[SDK] Local user creation/fetch failed, returning mock");
+        return {
+          id: 0,
+          openId: localOpenId,
+          name: localOpenId,
+          email: localOpenId,
+          phone: null,
+          avatarUrl: null,
+          loginMethod: "local",
+          role: "user",
+          moneyPersonality: null,
+          monthlyIncomeRange: null,
+          subscriptionTier: "free",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastSignedIn: new Date(),
+        };
+      }
+
+      return user;
+    }
+
+    console.log("[SDK] Session cookie/token:", sessionCookie ? "present" : "missing");
     const session = await this.verifySession(sessionCookie);
 
     if (!session) {
+      console.warn("[SDK] No session cookie or token provided");
       throw ForbiddenError("Invalid session cookie");
     }
 

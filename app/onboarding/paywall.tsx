@@ -1,5 +1,6 @@
 import { Text, View, Pressable, ScrollView, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
@@ -72,6 +73,7 @@ const PLANS: Array<{
 ];
 
 export default function PaywallScreen() {
+  const colors = useColors();
   const router = useRouter();
   const { from } = useLocalSearchParams();
   const [selectedPlan, setSelectedPlan] = useState<PlanId>("ai");
@@ -82,30 +84,32 @@ export default function PaywallScreen() {
 
   const handleSubscribe = async () => {
     if (!offerings) {
-      Alert.alert(
-        "Store unavailable",
-        "Please try again in a moment."
-      );
+      Alert.alert("Store unavailable", "Please try again in a moment.");
       return;
     }
     setPurchasing(true);
     try {
-      const packageToBuy =
-        selectedPlan === "society"
-          ? offerings.annual
-          : offerings.monthly;
+      // Find the package in RevenueCat that matches the selected plan ID
+      const packageToBuy = offerings.availablePackages.find(
+        (pkg: any) => pkg.identifier.toLowerCase() === selectedPlan.toLowerCase()
+      );
 
-      if (!packageToBuy) throw new Error("Plan not found in store");
-
-      await Purchases.purchasePackage(packageToBuy);
+      if (!packageToBuy) {
+        // Fallback to monthly/annual if exact identifier match fails
+        const fallbackPackage = selectedPlan === "society" ? offerings.annual : offerings.monthly;
+        if (!fallbackPackage) throw new Error("Plan not found in store");
+        await Purchases.purchasePackage(fallbackPackage);
+      } else {
+        await Purchases.purchasePackage(packageToBuy);
+      }
       Alert.alert(
         `Welcome to ${plan.name}! ✨`,
-        "Your subscription is now active. Enjoy the soft life."
+        "Your subscription is now active. Enjoy the soft life.",
       );
       if (from === "profile") {
         router.back();
       } else {
-        router.push("./notifications");
+        router.push("/onboarding/notifications");
       }
     } catch (e: any) {
       if (!e.userCancelled) {
@@ -120,7 +124,7 @@ export default function PaywallScreen() {
     if (from === "profile") {
       router.back();
     } else {
-      router.push("./notifications");
+      router.push("/onboarding/notifications");
     }
   };
 
@@ -134,37 +138,123 @@ export default function PaywallScreen() {
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 48, gap: 28, flex: 1 }}>
-
+        <View
+          style={{
+            paddingHorizontal: 24,
+            paddingTop: 32,
+            paddingBottom: 48,
+            gap: 24,
+            flex: 1,
+            backgroundColor: colors.background,
+          }}
+        >
           {/* Header */}
-          <View style={{ gap: 8, alignItems: "center" }}>
+          <View style={{ gap: 10, alignItems: "center" }}>
             <Text
               style={{
                 fontFamily: "PlayfairDisplay_700Bold",
-                fontSize: 24,
+                fontSize: 28,
                 color: DEEP_PLUM,
                 textAlign: "center",
-                lineHeight: 32,
+                lineHeight: 36,
               }}
             >
               Unlock your Soft Life Plan.
             </Text>
-            <Text
+            <View
               style={{
-                fontFamily: "DMSans_400Regular",
-                fontSize: 14,
-                color: `${DEEP_PLUM}99`,
-                textAlign: "center",
-                lineHeight: 20,
                 paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderRadius: 20,
+                backgroundColor: `${BLUSH_PINK}22`,
               }}
             >
-              Pick the plan that fits your financial glow-up journey.
+              <Text
+                style={{
+                  fontFamily: "DMSans_500Medium",
+                  fontSize: 12,
+                  color: DEEP_PLUM,
+                  textAlign: "center",
+                }}
+              >
+                First 3 days are free — no surprise charges, only soft money
+                clarity.
+              </Text>
+            </View>
+          </View>
+
+          {/* Dynamic Feature List */}
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: 28,
+              padding: 22,
+              gap: 14,
+              borderWidth: 1,
+              borderColor: `${DEEP_PLUM}10`,
+              shadowColor: DEEP_PLUM,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.08,
+              shadowRadius: 22,
+              elevation: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "DMSans_700Bold",
+                fontSize: 14,
+                color: DEEP_PLUM,
+                marginBottom: 6,
+              }}
+            >
+              What you get with {plan.name}:
             </Text>
+            {plan.features.map((feature, i) => (
+              <View
+                key={i}
+                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+              >
+                <View
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: `${ROSE_GOLD}22`,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: ROSE_GOLD,
+                      fontWeight: "700",
+                    }}
+                  >
+                    ✓
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontFamily: "DMSans_400Regular",
+                    fontSize: 13,
+                    color: `${DEEP_PLUM}CC`,
+                    flex: 1,
+                    lineHeight: 20,
+                  }}
+                >
+                  {feature}
+                </Text>
+              </View>
+            ))}
           </View>
 
           {/* Plan Selector */}
-          <View style={{ gap: 12 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ flexDirection: "row", paddingVertical: 4 }}
+          >
             {PLANS.map((p) => {
               const isSelected = selectedPlan === p.id;
               return (
@@ -172,23 +262,55 @@ export default function PaywallScreen() {
                   key={p.id}
                   onPress={() => setSelectedPlan(p.id)}
                   style={{
-                    borderWidth: 2,
-                    borderColor: isSelected ? DEEP_PLUM : `${DEEP_PLUM}20`,
-                    borderRadius: 20,
+                    position: "relative",
+                    width: 220,
+                    marginRight: 12,
+                    borderWidth: 1,
+                    borderColor: isSelected ? ROSE_GOLD : `${DEEP_PLUM}18`,
+                    borderRadius: 24,
                     padding: 16,
+                    backgroundColor: colors.surface,
                     flexDirection: "row",
                     alignItems: "center",
-                    backgroundColor: isSelected ? `${DEEP_PLUM}08` : "#fff",
+                    alignSelf: "flex-start",
                   }}
                 >
-                  {/* Radio dot */}
+                  {p.badge && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: -8,
+                        right: 10,
+                        borderRadius: 20,
+                        backgroundColor:
+                          p.id === "society" ? ROSE_GOLD : BLUSH_PINK,
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderWidth: 1,
+                        borderColor: colors.surface,
+                        zIndex: 1,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "DMSans_700Bold",
+                          fontSize: 10,
+                          color: p.id === "society" ? CREAM : DEEP_PLUM,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        {p.badge}
+                      </Text>
+                    </View>
+                  )}
                   <View
                     style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 10,
+                      width: 18,
+                      height: 18,
+                      borderRadius: 9,
                       borderWidth: 2,
-                      borderColor: isSelected ? DEEP_PLUM : `${DEEP_PLUM}40`,
+                      borderColor: isSelected ? ROSE_GOLD : `${DEEP_PLUM}30`,
                       alignItems: "center",
                       justifyContent: "center",
                       marginRight: 12,
@@ -197,17 +319,22 @@ export default function PaywallScreen() {
                     {isSelected && (
                       <View
                         style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 5,
-                          backgroundColor: DEEP_PLUM,
+                          width: 8,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: ROSE_GOLD,
                         }}
                       />
                     )}
                   </View>
-
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
                       <Text
                         style={{
                           fontFamily: "DMSans_700Bold",
@@ -217,37 +344,14 @@ export default function PaywallScreen() {
                       >
                         {p.name}
                       </Text>
-                      {p.badge && (
-                        <View
-                          style={{
-                            backgroundColor: p.id === "society" ? ROSE_GOLD : BLUSH_PINK,
-                            borderRadius: 20,
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontFamily: "DMSans_700Bold",
-                              fontSize: 9,
-                              color: p.id === "society" ? CREAM : DEEP_PLUM,
-                              textTransform: "uppercase",
-                              letterSpacing: 0.5,
-                            }}
-                          >
-                            {p.badge}
-                          </Text>
-                        </View>
-                      )}
                     </View>
                   </View>
-
                   <View style={{ alignItems: "flex-end" }}>
                     <Text
                       style={{
                         fontFamily: "PlayfairDisplay_700Bold",
-                        fontSize: 18,
-                        color: isSelected ? DEEP_PLUM : `${DEEP_PLUM}99`,
+                        fontSize: 20,
+                        color: DEEP_PLUM,
                       }}
                     >
                       {p.price}
@@ -265,70 +369,20 @@ export default function PaywallScreen() {
                 </Pressable>
               );
             })}
-          </View>
-
-          {/* Dynamic Feature List */}
-          <View
-            style={{
-              backgroundColor: `${DEEP_PLUM}06`,
-              borderRadius: 20,
-              padding: 20,
-              gap: 12,
-              borderWidth: 1,
-              borderColor: `${DEEP_PLUM}10`,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: "DMSans_700Bold",
-                fontSize: 13,
-                color: DEEP_PLUM,
-                marginBottom: 4,
-              }}
-            >
-              What's included in {plan.name}:
-            </Text>
-            {plan.features.map((feature, i) => (
-              <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <View
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    backgroundColor: BLUSH_PINK,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Text style={{ fontSize: 11, color: ROSE_GOLD, fontWeight: "bold" }}>✓</Text>
-                </View>
-                <Text
-                  style={{
-                    fontFamily: "DMSans_400Regular",
-                    fontSize: 13,
-                    color: `${DEEP_PLUM}CC`,
-                    flex: 1,
-                  }}
-                >
-                  {feature}
-                </Text>
-              </View>
-            ))}
-          </View>
+          </ScrollView>
 
           {/* Fine print */}
           <View style={{ alignItems: "center", paddingHorizontal: 16 }}>
             <Text
               style={{
                 fontFamily: "DMSans_400Regular",
-                fontSize: 11,
-                color: `${DEEP_PLUM}66`,
+                fontSize: 12,
+                color: `${DEEP_PLUM}88`,
                 textAlign: "center",
-                lineHeight: 16,
+                lineHeight: 18,
               }}
             >
-              Cancel anytime. No hidden fees. Your first 3 days are free.
+              No payment due now.
             </Text>
           </View>
 
@@ -338,10 +392,15 @@ export default function PaywallScreen() {
               onPress={handleSubscribe}
               disabled={purchasing}
               style={({ pressed }) => ({
-                opacity: pressed || purchasing ? 0.85 : 1,
-                transform: [{ scale: pressed ? 0.97 : 1 }],
-                borderRadius: 16,
+                opacity: pressed || purchasing ? 0.9 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+                borderRadius: 20,
                 overflow: "hidden",
+                shadowColor: ROSE_GOLD,
+                shadowOffset: { width: 0, height: 16 },
+                shadowOpacity: 0.18,
+                shadowRadius: 28,
+                elevation: 7,
               })}
             >
               <LinearGradient
@@ -349,8 +408,7 @@ export default function PaywallScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={{
-                  paddingVertical: 16,
-                  paddingHorizontal: 24,
+                  paddingVertical: 18,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
@@ -368,12 +426,15 @@ export default function PaywallScreen() {
               </LinearGradient>
             </Pressable>
 
-            <Pressable onPress={handleSkip}>
+            <Pressable
+              onPress={handleSkip}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+            >
               <Text
                 style={{
-                  fontFamily: "DMSans_400Regular",
+                  fontFamily: "DMSans_500Medium",
                   fontSize: 13,
-                  color: `${DEEP_PLUM}66`,
+                  color: DEEP_PLUM,
                   textAlign: "center",
                   textDecorationLine: "underline",
                 }}
@@ -382,7 +443,6 @@ export default function PaywallScreen() {
               </Text>
             </Pressable>
           </View>
-
         </View>
       </ScrollView>
     </ScreenContainer>

@@ -21,9 +21,9 @@ export default function WelcomeScreen() {
         <View className="px-6 pt-8 pb-12 gap-6 flex-1 justify-between">
           {/* Product Magic Hook */}
           <View className="items-center mt-4">
-            <View className="w-full bg-surface rounded-3xl border border-border items-center justify-center p-6 gap-5 shadow-sm">
+            <View className="w-full bg-surface rounded-3xl border border-border p-6 gap-4 shadow-sm">
                {/* UI Mockup for Product Magic */}
-               <View className="w-full bg-background rounded-xl p-4 border border-border gap-3 shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+               <View className="w-full bg-background rounded-3xl p-4 border border-border shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
                  <View className="flex-row items-center gap-3">
                    <View className="w-12 h-12 bg-accentGold/20 rounded-full items-center justify-center border border-accentGold/40">
                      <Text className="text-2xl">📸</Text>
@@ -35,7 +35,7 @@ export default function WelcomeScreen() {
                  </View>
                </View>
 
-               <View className="w-full bg-background rounded-xl p-4 border border-border gap-3 shadow-[0_4px_12px_rgba(0,0,0,0.05)] opacity-90 scale-95 -mt-2">
+               <View className="w-full bg-background rounded-3xl p-4 border border-border shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
                  <View className="flex-row items-center gap-3">
                    <View className="w-12 h-12 bg-primary/10 rounded-full items-center justify-center border border-primary/20">
                      <Text className="text-2xl">🎙️</Text>
@@ -50,21 +50,13 @@ export default function WelcomeScreen() {
           </View>
 
           {/* Content */}
-          <View className="gap-3 mt-4">
+          <View className="gap-3 mt-6 px-2">
             {/* Headline */}
             <Text 
-              className="font-playfair font-bold text-primary text-center leading-tight"
-              style={{ fontSize: 23 }}
+              className="font-playfair font-bold text-primary text-center"
+              style={{ fontSize: 28, lineHeight: 36 }}
             >
               Soft Life,{"\n"}on autopilot. ✨
-            </Text>
-
-            {/* Subtext */}
-            <Text
-              className="font-bold text-primary text-center leading-tight"
-              style={{ fontFamily: "PlayfairDisplay_700Bold", fontSize: 23 }}
-            >
-              Before we start — here is exactly what Plush does and does not do with your information.
             </Text>
           </View>
 

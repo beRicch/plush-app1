@@ -5,7 +5,9 @@ import { useColors } from "@/hooks/use-colors";
 
 export default function Index() {
   const colors = useColors();
-  const { data: user, isLoading } = trpc.auth.me.useQuery();
+  const { data: user, isLoading, isError } = trpc.auth.me.useQuery(undefined, {
+    retry: 1,
+  });
 
   if (isLoading) {
     return (

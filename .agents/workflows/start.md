@@ -5,7 +5,7 @@ description: start the expo development server
 To start the Expo development server and the backend server concurrently, run the following command in the project root:
 
 // turbo
-`npm run dev`
+``c
 
 This will start:
 1. The backend server on `server/_core/index.ts`.

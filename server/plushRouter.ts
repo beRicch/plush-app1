@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { publicProcedure, router } from "./_core/trpc.js";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc.js";
 import {
   parseImageWithVision,
   transcribeAudio,
@@ -30,6 +30,8 @@ import {
   getDebts,
   createInvestment,
   getInvestments,
+  createSavingsDeposit,
+  getGoalDeposits,
   createPost,
   getCommunityFeed,
   addComment,
@@ -44,7 +46,15 @@ import {
   getAjoCircles,
   getAjoCircleDetails,
   recordAjoContribution,
+  getAjoMessages,
+  sendAjoMessage,
+  getBills,
+  createBill,
+  getDashboardStats,
+  getDetailedSpendingBreakdown,
+  getLatestCommunityActivity,
 } from "./api/db-operations.js";
+import { updateUser, deleteUser } from "./db.js";
 
 export const plushRouter = router({
   // ===== EXPENSES =====
@@ -127,39 +137,6 @@ export const plushRouter = router({
       }),
   }),
 
-  // ===== SAVINGS GOALS =====
-  goals: router({
-    create: publicProcedure
-      .input(
-        z.object({
-          name: z.string(),
-          targetAmount: z.number(),
-          targetDate: z.string(),
-          coverTheme: z.string().optional(),
-          motivationNote: z.string().optional(),
-        })
-      )
-      .mutation(async ({ input, ctx }) => {
-        if (!ctx.user) throw new Error("Unauthorized");
-        return createSavingsGoal({
-          userId: ctx.user.id,
-          currentAmount: 0,
-          ...input,
-        });
-      }),
-
-    list: publicProcedure.query(async ({ ctx }) => {
-      if (!ctx.user) throw new Error("Unauthorized");
-      return getSavingsGoals(ctx.user.id);
-    }),
-
-    updateProgress: publicProcedure
-      .input(z.object({ goalId: z.string(), amount: z.number() }))
-      .mutation(async ({ input, ctx }) => {
-        if (!ctx.user) throw new Error("Unauthorized");
-        return updateGoalProgress(input.goalId, input.amount);
-      }),
-  }),
 
   // ===== DEBTS =====
   debts: router({
@@ -218,7 +195,6 @@ export const plushRouter = router({
     }),
   }),
 
-  // ===== COMMUNITY =====
   community: router({
     feed: publicProcedure.query(async () => {
       return getCommunityFeed();
@@ -250,6 +226,10 @@ export const plushRouter = router({
         if (!ctx.user) throw new Error("Unauthorized");
         return addComment(input.postId, ctx.user.id, input.content);
       }),
+
+    getLatestActivity: protectedProcedure.query(async () => {
+      return getLatestCommunityActivity();
+    }),
   }),
 
   // ===== RITUALS =====
@@ -274,32 +254,25 @@ export const plushRouter = router({
     }),
   }),
 
-  // ===== INSIGHTS & ANALYTICS =====
-  insights: router({
-    plushScore: publicProcedure.query(async ({ ctx }) => {
-      if (!ctx.user) throw new Error("Unauthorized");
+  analytics: router({
+    dashboard: protectedProcedure.query(async ({ ctx }) => {
+      return getDashboardStats(ctx.user.id);
+    }),
+    spendingBreakdown: protectedProcedure.query(async ({ ctx }) => {
+      return getDetailedSpendingBreakdown(ctx.user.id);
+    }),
+    plushScore: protectedProcedure.query(async ({ ctx }) => {
       return calculatePlushScore(ctx.user.id);
     }),
-
-    spendingByCategory: publicProcedure.query(async ({ ctx }) => {
-      if (!ctx.user) throw new Error("Unauthorized");
-      return getSpendingByCategory(ctx.user.id);
-    }),
-
-    savingsRate: publicProcedure.query(async ({ ctx }) => {
-      if (!ctx.user) throw new Error("Unauthorized");
-      return getMonthlySavingsRate(ctx.user.id);
-    }),
-
-    aiObservations: publicProcedure.query(async ({ ctx }) => {
-      if (!ctx.user) throw new Error("Unauthorized");
+    aiObservations: protectedProcedure.query(async ({ ctx }) => {
       return generateAIObservations(ctx.user.id);
     }),
+  }),
 
-    askPlush: publicProcedure
+  insights: router({
+    askPlush: protectedProcedure
       .input(z.object({ question: z.string() }))
       .mutation(async ({ input, ctx }) => {
-        if (!ctx.user) throw new Error("Unauthorized");
         const subscription = await checkSubscription(ctx.user.id);
         if (!hasFeatureAccess(subscription.tier, "ai_chat")) {
           throw new Error("Feature not available on your plan");
@@ -310,7 +283,7 @@ export const plushRouter = router({
   
   // ===== AJO CIRCLES =====
   ajo: router({
-    create: publicProcedure
+    create: protectedProcedure
       .input(
         z.object({
           name: z.string(),
@@ -322,22 +295,19 @@ export const plushRouter = router({
         })
       )
       .mutation(async ({ input, ctx }) => {
-        if (!ctx.user) throw new Error("Unauthorized");
         return createAjoCircle({
           creatorId: ctx.user.id,
           ...input,
         });
       }),
 
-    list: publicProcedure.query(async ({ ctx }) => {
-      if (!ctx.user) throw new Error("Unauthorized");
+    list: protectedProcedure.query(async ({ ctx }) => {
       return getAjoCircles(ctx.user.id);
     }),
 
-    join: publicProcedure
+    join: protectedProcedure
       .input(z.object({ inviteCode: z.string() }))
       .mutation(async ({ input, ctx }) => {
-        if (!ctx.user) throw new Error("Unauthorized");
         return joinAjoCircle(ctx.user.id, input.inviteCode);
       }),
 
@@ -347,7 +317,7 @@ export const plushRouter = router({
         return getAjoCircleDetails(input.circleId);
       }),
 
-    contribute: publicProcedure
+    contribute: protectedProcedure
       .input(
         z.object({
           circleId: z.string(),
@@ -356,10 +326,25 @@ export const plushRouter = router({
         })
       )
       .mutation(async ({ input, ctx }) => {
-        if (!ctx.user) throw new Error("Unauthorized");
         return recordAjoContribution({
           userId: ctx.user.id,
           ...input,
+        });
+      }),
+
+    getMessages: protectedProcedure
+      .input(z.object({ circleId: z.string() }))
+      .query(async ({ input }) => {
+        return getAjoMessages(input.circleId);
+      }),
+
+    sendMessage: protectedProcedure
+      .input(z.object({ circleId: z.string(), message: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        return sendAjoMessage({
+          circleId: input.circleId,
+          userId: ctx.user.id,
+          message: input.message,
         });
       }),
   }),
@@ -390,6 +375,106 @@ export const plushRouter = router({
     pricing: publicProcedure.query(async () => {
       return getTierPricing();
     }),
+  }),
+
+  // ===== BILLS =====
+  bills: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return getBills(ctx.user.id);
+    }),
+    create: protectedProcedure
+      .input(z.object({
+        name: z.string(),
+        amount: z.number(),
+        dueDate: z.string(),
+        category: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        return createBill({
+          userId: ctx.user.id,
+          ...input,
+        });
+      }),
+  }),
+
+  // ===== SAVINGS =====
+  savings: router({
+    listGoals: protectedProcedure.query(async ({ ctx }) => {
+      return getSavingsGoals(ctx.user.id);
+    }),
+    createGoal: protectedProcedure
+      .input(
+        z.object({
+          name: z.string(),
+          targetAmount: z.number(),
+          targetDate: z.string(),
+          monthlyContribution: z.number().optional(),
+          motivation: z.string().optional(),
+          coverColor: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        return createSavingsGoal({
+          userId: ctx.user.id,
+          name: input.name,
+          targetAmount: input.targetAmount,
+          targetDate: input.targetDate,
+          motivationNote: input.motivation,
+          coverTheme: input.coverColor,
+        });
+      }),
+    addDeposit: protectedProcedure
+      .input(
+        z.object({
+          goalId: z.string(),
+          amount: z.number(),
+          date: z.string(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        return createSavingsDeposit({
+          goalId: input.goalId,
+          userId: ctx.user.id,
+          amount: input.amount,
+          date: input.date,
+        });
+      }),
+    listDeposits: protectedProcedure
+      .input(z.object({ goalId: z.string() }))
+      .query(async ({ input }) => {
+        return getGoalDeposits(input.goalId);
+      }),
+    updateGoalProgress: protectedProcedure
+      .input(z.object({ goalId: z.string(), amount: z.number() }))
+      .mutation(async ({ input }) => {
+        return updateGoalProgress(input.goalId, input.amount);
+      }),
+  }),
+
+  // ===== PROFILE =====
+  profile: router({
+    update: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().optional(),
+          phone: z.string().optional(),
+          avatarUrl: z.string().optional(),
+          moneyPersonality: z.string().optional(),
+          monthlyIncomeRange: z.string().optional(),
+          incomeFrequency: z.string().optional(),
+          weeklyCap: z.number().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        await updateUser(ctx.user.openId, input);
+        return { success: true };
+      }),
+    
+    deleteAccount: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        await deleteUser(ctx.user.id);
+        return { success: true };
+      }),
   }),
 });
 

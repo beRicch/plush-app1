@@ -34,7 +34,7 @@ export default function GoalCelebrationScreen() {
           </Text>
 
           <Pressable
-            onPress={() => router.replace("/goals")}
+            onPress={() => router.back()}
             className="mt-4 rounded-full py-4 items-center"
             style={{ backgroundColor: "#B76E79" }}
           >

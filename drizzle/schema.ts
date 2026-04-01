@@ -19,6 +19,8 @@ export const users = pgTable("users", {
   role: roleEnum("role").default("user").notNull(),
   moneyPersonality: varchar("moneyPersonality", { length: 255 }),
   monthlyIncomeRange: varchar("monthlyIncomeRange", { length: 50 }),
+  incomeFrequency: varchar("incomeFrequency", { length: 20 }),
+  weeklyCap: integer("weeklyCap"),
   subscriptionTier: subscriptionTierEnum("subscriptionTier").default("free").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
@@ -90,8 +92,19 @@ export const ajoContributions = pgTable("ajoContributions", {
 
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = typeof expenses.$inferInsert;
+export const savingsDeposits = pgTable("savingsDeposits", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  goalId: varchar("goalId", { length: 36 }).notNull(),
+  userId: integer("userId").notNull(),
+  amount: integer("amount").notNull(),
+  date: varchar("date", { length: 10 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type SavingsGoal = typeof savingsGoals.$inferSelect;
 export type InsertSavingsGoal = typeof savingsGoals.$inferInsert;
+export type SavingsDeposit = typeof savingsDeposits.$inferSelect;
+export type InsertSavingsDeposit = typeof savingsDeposits.$inferInsert;
 export type AjoCircle = typeof ajoCircles.$inferSelect;
 export type InsertAjoCircle = typeof ajoCircles.$inferInsert;
 export type AjoMember = typeof ajoMembers.$inferSelect;
@@ -167,5 +180,29 @@ export const ritualCompletions = pgTable("ritualCompletions", {
   completedAt: timestamp("completedAt").defaultNow().notNull(),
 });
 
+export const bills = pgTable("bills", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: integer("userId").notNull(),
+  name: text("name").notNull(),
+  amount: integer("amount").notNull(),
+  dueDate: varchar("dueDate", { length: 10 }).notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  category: varchar("category", { length: 50 }).default("Bills").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const ajoMessages = pgTable("ajoMessages", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  circleId: varchar("circleId", { length: 36 }).notNull(),
+  userId: integer("userId").notNull(),
+  message: text("message").notNull(),
+  isSystem: integer("isSystem").default(0).notNull(), // 0 for user, 1 for system
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Bill = typeof bills.$inferSelect;
+export type InsertBill = typeof bills.$inferInsert;
+export type AjoMessage = typeof ajoMessages.$inferSelect;
+export type InsertAjoMessage = typeof ajoMessages.$inferInsert;
 export type RitualCompletion = typeof ritualCompletions.$inferSelect;
 export type InsertRitualCompletion = typeof ritualCompletions.$inferInsert;

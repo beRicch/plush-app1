@@ -1,6 +1,6 @@
 import { Text, View, Animated, Easing } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect, useState, useRef } from "react";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -18,6 +18,9 @@ export default function GeneratingPlanScreen() {
   const [step, setStep] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
+  const params = useLocalSearchParams();
+  const archetype = String(params.archetype ?? "balanced");
+
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: 1,
@@ -30,7 +33,7 @@ export default function GeneratingPlanScreen() {
       setStep((prev) => {
         if (prev >= LOADING_STEPS.length - 1) {
           clearInterval(interval);
-          setTimeout(() => router.replace("./personality-result"), 500);
+          setTimeout(() => router.replace({ pathname: "./personality-result", params: params as Record<string, string> }), 500);
           return prev;
         }
         return prev + 1;
@@ -38,7 +41,7 @@ export default function GeneratingPlanScreen() {
     }, 1500);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [archetype]);
 
   return (
     <ScreenContainer

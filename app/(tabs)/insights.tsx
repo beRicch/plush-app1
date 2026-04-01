@@ -16,6 +16,7 @@ import { PremiumGate } from "@/components/premium-gate";
 import { Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
+import { trpc } from "@/lib/trpc";
 
 // Brand Colors
 const DEEP_PLUM = "#4A1560";
@@ -23,49 +24,10 @@ const BLUSH_PINK = "#F4B8C1";
 const CREAM = "#FAF5EF";
 const ROSE_GOLD = "#B76E79";
 
-// Mock data
-const PLUSH_SCORE = 74;
-const SCORE_BREAKDOWN = [
-  { name: "Savings Rate", points: 18, max: 25 },
-  { name: "Ritual Consistency", points: 15, max: 20 },
-  { name: "Goal Progress", points: 16, max: 20 },
-  { name: "Bill Timeliness", points: 15, max: 20 },
-  { name: "Community Participation", points: 10, max: 15 },
-];
-
-const SPENDING_CATEGORIES = [
-  { name: "Food & Dining", amount: 28500, percentage: 35 },
-  { name: "Shopping", amount: 18200, percentage: 22 },
-  { name: "Transport", amount: 12400, percentage: 15 },
-  { name: "Beauty & Self-Care", amount: 10800, percentage: 13 },
-  { name: "Entertainment", amount: 11100, percentage: 15 },
-];
-
-const AI_OBSERVATIONS = [
-  {
-    id: "1",
-    observation: "You spend 40% more on Fridays 👀",
-    context: "Your Friday average is ₦12,400 vs ₦8,800 other days",
-    suggestion: "Consider a Friday soft cap of ₦10,000",
-  },
-  {
-    id: "2",
-    observation: "Beauty spending spiked this week 💄",
-    context: "₦4,200 spent vs your usual ₦2,100 weekly average",
-    suggestion: "No judgment—just now you know. Plan ahead for next month's skincare haul 🧴",
-  },
-  {
-    id: "3",
-    observation: "You're crushing your savings goal 💪",
-    context: "You've saved ₦45,000 this month (18% of income)",
-    suggestion: "At this rate, you'll hit your ₦200k goal in 5 months. You're doing it, sis!",
-  },
-];
+// Mock data removed - using real tRPC queries
 
 const CHAT_MESSAGES = [
   { id: "1", type: "bot", text: "Welcome back, Queen! 👑 I'm Plush, your financial wellness bestie. How is your soft life journey going today? 🌸" },
-  { id: "2", type: "user", text: "Why do I never have money?" },
-  { id: "3", type: "bot", text: "I looked into it, and your records show ₦18,000 went to Airtime and data last month — that caught me off guard too! 😮 Now you know where that quiet drain is. Want to set a monthly cap for it with me? 🌸" },
 ];
 
 const STARTER_PROMPTS = [
@@ -85,32 +47,56 @@ export default function InsightsScreen() {
   const [chatInput, setChatInput] = useState("");
   const { isPremium, loading } = useSubscription();
 
+  // tRPC Queries
+  const dashboardQuery = trpc.plush.analytics.dashboard.useQuery();
+  const breakdownQuery = trpc.plush.analytics.spendingBreakdown.useQuery();
+  const observationsQuery = trpc.plush.analytics.aiObservations.useQuery();
+  const askMutation = trpc.plush.insights.askPlush.useMutation();
+
+  const stats = dashboardQuery.data || { safeToSpend: 0, totalSaved: 0, plushScore: 0, spent: 0 };
+  const categories = breakdownQuery.data || [];
+  const observations = observationsQuery.data || [];
+
+  const totalSpent = stats.spent;
+  const formattedCategories = categories.map(cat => ({
+    name: cat.category,
+    amount: cat.amount,
+    percentage: totalSpent > 0 ? Math.round((cat.amount / totalSpent) * 100) : 0,
+  }));
+
   const handleUnlock = () => {
     Alert.alert("Premium Feature", "Unlock deep insights and AI-powered advice with Plush Premium 🌸");
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!chatInput.trim()) return;
 
-    const newMessage = {
-      id: String(chatMessages.length + 1),
+    const userMsg = {
+      id: Date.now().toString(),
       type: "user",
       text: chatInput,
     };
 
-    setChatMessages([...chatMessages, newMessage]);
-
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse = {
-        id: String(chatMessages.length + 2),
-        type: "bot",
-        text: "I hear you! Let me think about that... 💜 What specific area would you like help with?",
-      };
-      setChatMessages((prev) => [...prev, botResponse]);
-    }, 500);
-
+    setChatMessages(prev => [...prev, userMsg]);
+    const question = chatInput;
     setChatInput("");
+
+    try {
+      const response = await askMutation.mutateAsync({ question });
+      const botMsg = {
+        id: (Date.now() + 1).toString(),
+        type: "bot",
+        text: typeof response === "string" ? response : (response as any).text,
+      };
+      setChatMessages(prev => [...prev, botMsg]);
+    } catch (error) {
+      const errorMsg = {
+        id: (Date.now() + 1).toString(),
+        type: "bot",
+        text: "I'm having a small glitch, sis. Try asking again? 🌸",
+      };
+      setChatMessages(prev => [...prev, errorMsg]);
+    }
   };
 
   return (
@@ -234,7 +220,7 @@ export default function InsightsScreen() {
                         className="text-4xl font-bold"
                         style={{ fontFamily: "PlayfairDisplay_700Bold", color: "#4A1560" }}
                       >
-                        {PLUSH_SCORE}
+                        {stats.plushScore}
                       </Text>
                     </View>
                     <Text className="text-sm font-semibold text-foreground">Plush Score</Text>
@@ -256,7 +242,7 @@ export default function InsightsScreen() {
                     >
                       <View className="items-center">
                         <Text className="text-xl font-bold text-foreground">
-                          ₦81k
+                          ₦{(stats.spent / 1000).toFixed(1)}k
                         </Text>
                       </View>
                     </View>
@@ -266,7 +252,7 @@ export default function InsightsScreen() {
 
                 {/* Motivational Quote */}
                 <Text className="text-sm text-muted text-center mt-2">
-                  Strong savings rate, but beauty spending spiked this week 💄
+                  {observations[0] || "Keep tracking to see your patterns, Queen! 🌸"}
                 </Text>
               </View>
 
@@ -296,7 +282,7 @@ export default function InsightsScreen() {
                   style={{ backgroundColor: colors.surface }}
                 >
                   <View className="gap-2">
-                    {SPENDING_CATEGORIES.map((cat, idx) => (
+                    {formattedCategories.length > 0 ? formattedCategories.map((cat, idx) => (
                       <View key={cat.name} className="gap-2">
                         <View className="flex-row justify-between items-center">
                           <View className="flex-row items-center gap-2 flex-1">
@@ -334,7 +320,9 @@ export default function InsightsScreen() {
                         </View>
                         <Text className="text-xs text-muted">{cat.percentage}% of total</Text>
                       </View>
-                    ))}
+                    )) : (
+                      <Text className="text-xs text-muted text-center">No expenses recorded yet. Start tracking to see your breakdown! 🌿</Text>
+                    )}
                   </View>
                 </View>
               </View>
@@ -348,19 +336,19 @@ export default function InsightsScreen() {
                   AI Observations
                 </Text>
 
-                {AI_OBSERVATIONS.map((obs) => (
+                {observations.length > 0 ? observations.map((obs, idx) => (
                   <View
-                    key={obs.id}
+                    key={`${idx}-${obs}`}
                     className="rounded-2xl p-4 gap-2"
                     style={{ backgroundColor: colors.surface }}
                   >
-                    <Text className="text-sm font-bold text-foreground">{obs.observation}</Text>
-                    <Text className="text-xs text-muted">{obs.context}</Text>
-                    <View className="pt-2 border-t border-border">
-                      <Text className="text-xs text-foreground italic">{obs.suggestion}</Text>
-                    </View>
+                    <Text className="text-sm font-bold text-foreground">{obs}</Text>
                   </View>
-                ))}
+                )) : (
+                  <Text className="text-xs text-muted text-center py-4 bg-surface rounded-2xl">
+                    I'm watching your patterns carefully, Queen. Check back tomorrow! 👁️✨
+                  </Text>
+                )}
               </View>
 
               {/* MONTHLY VAULT REPORT */}

@@ -21,6 +21,10 @@ export interface ScreenContainerProps extends ViewProps {
    * Additional className for the SafeAreaView (content layer).
    */
   safeAreaClassName?: string;
+  /**
+   * Additional style for the SafeAreaView (content layer).
+   */
+  safeAreaStyle?: ViewProps["style"];
 }
 
 /**
@@ -44,22 +48,20 @@ export function ScreenContainer({
   className,
   containerClassName,
   safeAreaClassName,
+  safeAreaStyle,
   style,
   ...props
 }: ScreenContainerProps) {
   return (
     <View
-      className={cn(
-        "flex-1",
-        "bg-background",
-        containerClassName
-      )}
+      className={cn("flex-1", "bg-background", containerClassName)}
+      style={style}
       {...props}
     >
       <SafeAreaView
         edges={edges}
         className={cn("flex-1", safeAreaClassName)}
-        style={style}
+        style={safeAreaStyle}
       >
         <View className={cn("flex-1", className)}>{children}</View>
       </SafeAreaView>

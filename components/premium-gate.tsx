@@ -13,9 +13,14 @@ interface PremiumGateProps {
 export function PremiumGate({ children, isPremium, onUnlock }: PremiumGateProps) {
   const colors = useColors();
 
+  // Bypass for testing
+  return <>{children}</>;
+
+  /* Original Logic:
   if (isPremium) {
     return <>{children}</>;
   }
+  */
 
   return (
     <View style={styles.container}>

@@ -2,6 +2,7 @@ import { Text, View, Pressable, ScrollView } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { cn } from "@/lib/utils";
 import { LinearGradient } from "expo-linear-gradient";
 import { PROGRESS_GRADIENT, PLUSH_GRADIENT } from "@/components/plush-gradient";
@@ -53,6 +54,18 @@ const QUIZ_QUESTIONS = [
   {
     id: 5,
     type: "question",
+    question: "Roughly how much do you make each month?",
+    microcopy: "This helps Plush set a goal that fits your real income.",
+    answers: [
+      { id: "A", text: "Under ₦100k" },
+      { id: "B", text: "₦100k - ₦250k" },
+      { id: "C", text: "₦250k - ₦500k" },
+      { id: "D", text: "Over ₦500k" },
+    ],
+  },
+  {
+    id: 6,
+    type: "question",
     question: "Do you know where your money goes?",
     microcopy: "This helps us decide between budgeting help, spending awareness, or saving discipline.",
     answers: [
@@ -63,7 +76,7 @@ const QUIZ_QUESTIONS = [
     ],
   },
   {
-    id: 6,
+    id: 7,
     type: "question",
     question: "What usually stops you from saving?",
     microcopy: "This helps Plush design nudges and automations that actually work for you.",
@@ -75,7 +88,7 @@ const QUIZ_QUESTIONS = [
     ],
   },
   {
-    id: 7,
+    id: 8,
     type: "question",
     question: "What's a realistic savings target for the next 3-6 months?",
     microcopy: "Your target determines the pace of your Plush Plan.",
@@ -104,25 +117,173 @@ export default function QuizScreen() {
   const isAnswered = selectedAnswers[question.id] !== undefined;
   const isLastQuestion = currentQuestion === QUIZ_QUESTIONS.length - 1;
 
+  const getArchetypeKey = (answers: Record<number, string>) => {
+    const score: Record<string, number> = {
+      "bloom-saver": 0,
+      "ritual-builder": 0,
+      "soft-strategist": 0,
+      "vault-visionary": 0,
+      balanced: 0,
+    };
+
+    const add = (key: string) => {
+      score[key] = (score[key] ?? 0) + 1;
+    };
+
+    const tagMap: Record<number, Record<string, string>> = {
+      1: { A: "bloom-saver", B: "ritual-builder", C: "soft-strategist", D: "vault-visionary" },
+      2: { A: "bloom-saver", B: "ritual-builder", C: "balanced", D: "vault-visionary" },
+      4: { A: "balanced", B: "ritual-builder", C: "soft-strategist", D: "vault-visionary" },
+      5: { A: "balanced", B: "soft-strategist", C: "ritual-builder", D: "vault-visionary" },
+      6: { A: "balanced", B: "ritual-builder", C: "bloom-saver", D: "soft-strategist" },
+      7: { A: "bloom-saver", B: "ritual-builder", C: "soft-strategist", D: "balanced" },
+      8: { A: "bloom-saver", B: "balanced", C: "soft-strategist", D: "vault-visionary" },
+    };
+
+    for (const [questionId, answerId] of Object.entries(answers)) {
+      const qId = Number(questionId);
+      const mapping = tagMap[qId];
+      const archetype = mapping?.[answerId];
+      if (archetype) {
+        add(archetype);
+      }
+    }
+
+    return Object.entries(score).sort((a, b) => b[1] - a[1])[0][0] || "balanced";
+  };
+
+  const getPlanFromAnswers = (answers: Record<number, string>) => {
+    const numericValue = (amount: number) => String(amount);
+    const goalMap: Record<string, number> = {
+      A: 100_000,
+      B: 350_000,
+      C: 750_000,
+      D: 1_500_000,
+    };
+    const deadlineMap: Record<string, string> = {
+      A: "May 2026",
+      B: "July 2026",
+      C: "September 2026",
+      D: "December 2026",
+    };
+    const monthsMap: Record<string, number> = {
+      A: 3,
+      B: 5,
+      C: 6,
+      D: 9,
+    };
+    const allowanceFactor: Record<string, number> = {
+      A: 0.15,
+      B: 0.25,
+      C: 0.1,
+      D: 0.12,
+    };
+
+    const targetValue = goalMap[answers[8] ?? "B"] ?? 500_000;
+    const baseMonths = monthsMap[answers[8] ?? "C"] ?? 6;
+    const incomeModifier = {
+      A: 1,
+      B: 0.95,
+      C: 1.1,
+      D: 0.9,
+    }[answers[4] ?? "A"] ?? 1;
+    const incomeRangeFactor = {
+      A: 0.75,
+      B: 0.85,
+      C: 1,
+      D: 1.15,
+    }[answers[5] ?? "C"] ?? 1;
+    const incomeScale = {
+      A: 0.75,
+      B: 0.85,
+      C: 1,
+      D: 1.2,
+    }[answers[6] ?? "C"] ?? 1;
+    const monthlyValue = Math.max(5_000, Math.round((targetValue / baseMonths) / 5_000) * 5_000);
+    const adjustedMonthly = Math.max(
+      5_000,
+      Math.round((monthlyValue * incomeModifier * incomeScale * incomeRangeFactor) / 5_000) * 5_000,
+    );
+    const allowanceValue = Math.max(5_000, Math.round((adjustedMonthly * (allowanceFactor[answers[7] ?? "B"] ?? 0.18)) / 5_000) * 5_000);
+
+    const ritual = answers[5] === "C" || answers[5] === "D"
+      ? "Weekly money clarity ritual"
+      : "Weekly money momentum ritual";
+    const ritualDetail = answers[5] === "D"
+      ? "Every Sunday at 7 PM with automated reminders"
+      : "Every Sunday at 7 PM";
+
+    const planReason = {
+      A: "Emergency fund foundation",
+      B: "Cashflow stability",
+      C: "Soft-life savings structure",
+      D: "Debt-free momentum",
+    }[answers[1] ?? "C"];
+
+    return {
+      targetGoal: numericValue(targetValue),
+      targetDate: deadlineMap[answers[7] ?? "C"] ?? "September 2026",
+      monthlyTarget: numericValue(adjustedMonthly),
+      allowance: numericValue(allowanceValue),
+      ritual,
+      ritualDetail,
+      planReason,
+    };
+  };
+
   const handleSelectAnswer = (answerId: string) => {
-    setSelectedAnswers((prev) => ({
-      ...prev,
+    const nextAnswers = {
+      ...selectedAnswers,
       [question.id]: answerId,
-    }));
+    };
+
+    setSelectedAnswers(nextAnswers);
     
     // Automatically advance after a brief delay for visual feedback
-    setTimeout(() => {
+    setTimeout(async () => {
       if (isLastQuestion) {
-        router.push("./generating-plan");
+        const archetype = getArchetypeKey(nextAnswers);
+        const plan = getPlanFromAnswers(nextAnswers);
+        
+        // Save onboarding data for late sync
+        try {
+          await AsyncStorage.setItem("plush_pending_onboarding", JSON.stringify({
+            moneyPersonality: archetype,
+            monthlyIncomeRange: nextAnswers[5],
+            incomeFrequency: nextAnswers[4],
+            weeklyCap: nextAnswers[7],
+            targetGoalValue: nextAnswers[8],
+          }));
+        } catch (e) {
+          console.warn("Failed to save pending onboarding data", e);
+        }
+
+        router.push({ pathname: "./generating-plan", params: { archetype, ...plan, incomeRange: nextAnswers[5] ?? "C" } });
       } else {
         setCurrentQuestion((prev) => prev + 1);
       }
     }, 300);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isLastQuestion) {
-      router.push("./generating-plan");
+      const archetype = getArchetypeKey(selectedAnswers);
+      const plan = getPlanFromAnswers(selectedAnswers);
+
+      // Save onboarding data for late sync
+      try {
+        await AsyncStorage.setItem("plush_pending_onboarding", JSON.stringify({
+          moneyPersonality: archetype,
+          monthlyIncomeRange: selectedAnswers[5],
+          incomeFrequency: selectedAnswers[4],
+          weeklyCap: selectedAnswers[7],
+          targetGoalValue: selectedAnswers[8],
+        }));
+      } catch (e) {
+        console.warn("Failed to save pending onboarding data", e);
+      }
+
+      router.push({ pathname: "./generating-plan", params: { archetype, ...plan, incomeRange: selectedAnswers[5] ?? "C" } });
     } else {
       setCurrentQuestion((prev) => prev + 1);
     }

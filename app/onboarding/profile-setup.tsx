@@ -2,6 +2,7 @@ import { Text, View, Pressable, TextInput, ScrollView } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/use-colors";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
@@ -20,7 +21,19 @@ export default function ProfileSetupScreen() {
   const colors = useColors();
   const [selectedIncome, setSelectedIncome] = useState("");
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    if (selectedIncome) {
+      try {
+        const existing = await AsyncStorage.getItem("plush_pending_onboarding");
+        const parsed = existing ? JSON.parse(existing) : {};
+        await AsyncStorage.setItem("plush_pending_onboarding", JSON.stringify({
+          ...parsed,
+          monthlyIncomeRange: selectedIncome,
+        }));
+      } catch (e) {
+        console.warn("Failed to save income range", e);
+      }
+    }
     router.push("/auth");
   };
 

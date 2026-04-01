@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
+import Constants, { AppOwnership } from 'expo-constants';
 import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
@@ -19,6 +20,28 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { initRevenueCat } from "@/lib/revenuecat";
+import { useAppUpdate } from "@/hooks/use-app-update";
+import * as Notifications from "expo-notifications";
+import * as SplashScreen from "expo-splash-screen";
+import { useRef } from "react";
+
+// Keep the splash screen visible until we're ready
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* ignore */
+});
+
+// Push notifications are not supported in Expo Go for SDK 53+
+if (Constants.appOwnership !== 'expo') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -34,10 +57,37 @@ export default function RootLayout() {
   const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
   const [frame, setFrame] = useState<Rect>(initialFrame);
 
+  // Check for and apply OTA updates on startup
+  useAppUpdate();
+
   // Initialize Manus runtime and RevenueCat
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+
   useEffect(() => {
+    // Initialize Manus runtime and RevenueCat
     initManusRuntime();
     initRevenueCat();
+
+    // Skip notification listeners in Expo Go
+    if (Constants.appOwnership !== 'expo') {
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log("Notification Received:", notification);
+      });
+
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log("Notification Tapped:", response);
+      });
+    }
+
+    return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
+    };
   }, []);
 
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {

@@ -43,9 +43,17 @@ const config: ExpoConfig = {
   slug: env.appSlug,
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/images/icon.png",
+  icon: "./assets/images/icon-new.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
+  updates: {
+    url: "https://u.expo.dev/f959ba68-1999-4c60-8666-07e68698cc54",
+    checkAutomatically: "ON_LOAD",
+    fallbackToCacheTimeout: 0,
+  },
+  runtimeVersion: {
+    policy: "appVersion",
+  },
   extra: {
     eas: {
       projectId: "f959ba68-1999-4c60-8666-07e68698cc54",
@@ -62,7 +70,7 @@ const config: ExpoConfig = {
   android: {
     adaptiveIcon: {
       backgroundColor: "#F5F1ED",
-      foregroundImage: "./assets/images/android-icon-foreground.png",
+      foregroundImage: "./assets/images/icon-new.png",
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },

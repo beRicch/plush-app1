@@ -26,12 +26,18 @@ export function useAuth(options?: UseAuthOptions) {
         console.log("[useAuth] API user response:", apiUser);
 
         if (apiUser) {
+          const apiUserData = apiUser as any;
           const userInfo: Auth.User = {
             id: apiUser.id,
             openId: apiUser.openId,
             name: apiUser.name,
             email: apiUser.email,
+            phone: apiUserData.phone ?? null,
+            avatarUrl: apiUserData.avatarUrl ?? null,
             loginMethod: apiUser.loginMethod,
+            moneyPersonality: apiUserData.moneyPersonality ?? null,
+            monthlyIncomeRange: apiUserData.monthlyIncomeRange ?? null,
+            subscriptionTier: apiUserData.subscriptionTier ?? "free",
             lastSignedIn: new Date(apiUser.lastSignedIn),
           };
           setUser(userInfo);

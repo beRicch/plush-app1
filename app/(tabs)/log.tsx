@@ -10,20 +10,23 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Toast, AnimatedPressable } from "@/components/plush-animations";
 import { EmptyState } from "@/components/plush-empty-state";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { trpc } from "@/lib/trpc";
 import { useAudioRecorder, AudioModule, RecordingOptions } from "expo-audio";
 import { useSubscription } from "@/lib/revenuecat";
 import { useRouter } from "expo-router";
- 
+
 const BLUSH_PINK = "#F4B8C1";
 const DEEP_PLUM = "#4A1560";
+const PAID_FEATURE_COLOR = "#EFE6F3";
+const MEMBER_FEATURE_COLOR = "#FFFFFF";
 
 // Mock data
 const ENTRY_MODES = [
@@ -32,7 +35,7 @@ const ENTRY_MODES = [
     icon: "📸",
     name: "Screenshot",
     description: "Snap your bank alert",
-    color: "#FDF2F4", // Very light blush
+    color: PAID_FEATURE_COLOR,
     tier: "ai",
   },
   {
@@ -40,7 +43,7 @@ const ENTRY_MODES = [
     icon: "🎤",
     name: "Voice Note",
     description: "Speak it naturally",
-    color: "#FDF2F4",
+    color: PAID_FEATURE_COLOR,
     tier: "ai",
   },
   {
@@ -48,7 +51,7 @@ const ENTRY_MODES = [
     icon: "📷",
     name: "Camera Scan",
     description: "Point at your receipt",
-    color: "#FDF2F4",
+    color: PAID_FEATURE_COLOR,
     tier: "ai",
   },
   {
@@ -56,7 +59,7 @@ const ENTRY_MODES = [
     icon: "✍️",
     name: "Quick Text",
     description: "Type it casually",
-    color: "#F9E6E9", // Slightly deeper blush for free/active
+    color: MEMBER_FEATURE_COLOR,
     tier: "member",
   },
 ];
@@ -111,14 +114,14 @@ const MOCK_EXTRACTED_DATA = {
 export default function LogScreen() {
   const colors = useColors();
   const router = useRouter();
-  
+
   // RevenueCat Hook
   const { isPremium, loading: subLoading } = useSubscription();
-  const userTier = isPremium ? "ai" : "free"; 
-  
+  const userTier = isPremium ? "ai" : "free";
+
   // tRPC Hooks
   const utils = trpc.useUtils();
-  
+
   const parseScreenshot = trpc.plush.aiEntry.parseScreenshot.useMutation();
   const parseCamera = trpc.plush.aiEntry.parseCamera.useMutation();
   const parseVoice = trpc.plush.aiEntry.parseVoice.useMutation();
@@ -127,6 +130,12 @@ export default function LogScreen() {
 
   const expensesQuery = trpc.plush.expenses.list.useQuery();
   const recentEntries = expensesQuery.data || [];
+
+  const params = useLocalSearchParams() as {
+    goalName?: string;
+    category?: string;
+    source?: string;
+  };
 
   const [activeMode, setActiveMode] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -139,15 +148,17 @@ export default function LogScreen() {
 
   // Form state
   const [formData, setFormData] = useState({
-    merchant: "",
+    merchant: params.goalName ? `Goal deposit: ${params.goalName}` : "",
     amount: "0",
-    category: "Other",
+    category: params.category ?? (params.goalName ? "Savings" : "Other"),
     date: new Date().toISOString().split("T")[0],
     type: "expense" as "expense" | "income",
-    softComment: "",
+    softComment: params.goalName ? `Deposit toward ${params.goalName}` : "",
   });
 
-  const [selectedCategory, setSelectedCategory] = useState("Other");
+  const [selectedCategory, setSelectedCategory] = useState(
+    params.category ?? (params.goalName ? "Savings" : "Other")
+  );
 
   const fileToBase64 = async (uri: string) => {
     try {
@@ -169,10 +180,13 @@ export default function LogScreen() {
     android: {
       extension: ".m4a",
       sampleRate: 44100,
+      outputFormat: "mpeg4",
+      audioEncoder: "aac",
     },
     ios: {
       extension: ".m4a",
       sampleRate: 44100,
+      audioQuality: 0,
     },
     web: {},
   });
@@ -206,7 +220,9 @@ export default function LogScreen() {
         if (!result.canceled && result.assets[0].uri) {
           setIsLoading(true);
           const base64 = await fileToBase64(result.assets[0].uri);
-          const parsed = await parseScreenshot.mutateAsync({ imageBase64: base64 });
+          const parsed = await parseScreenshot.mutateAsync({
+            imageBase64: base64,
+          });
           updateFormDataFromAI(parsed);
         } else {
           setActiveMode(null);
@@ -216,10 +232,12 @@ export default function LogScreen() {
           setIsRecording(false);
           setIsLoading(true);
           await recorder.stop();
-          const recordingUri = recorder.uri; 
+          const recordingUri = recorder.uri;
           if (recordingUri) {
             const base64 = await fileToBase64(recordingUri);
-            const parsed = await parseVoice.mutateAsync({ audioBase64: base64 });
+            const parsed = await parseVoice.mutateAsync({
+              audioBase64: base64,
+            });
             updateFormDataFromAI(parsed);
           }
         } else {
@@ -232,7 +250,9 @@ export default function LogScreen() {
         // and add a button to trigger the parse.
         if (formData.merchant.trim().length > 5) {
           setIsLoading(true);
-          const parsed = await parseText.mutateAsync({ text: formData.merchant });
+          const parsed = await parseText.mutateAsync({
+            text: formData.merchant,
+          });
           updateFormDataFromAI(parsed);
         } else {
           setAiParseError("Type a bit more for me to parse, queen! 🌸");
@@ -265,7 +285,7 @@ export default function LogScreen() {
       setAmountError("How much was it, love? Add an amount to log this. 🌸");
       return;
     }
-    
+
     setIsLoading(true);
     try {
       await createExpense.mutateAsync({
@@ -277,13 +297,13 @@ export default function LogScreen() {
         entryMethod: activeMode || "manual",
         notes: formData.softComment, // or a separate notes field
       });
-      
+
       setAmountError("");
       setShowConfirmation(false);
       setActiveMode(null);
       setShowToast(true);
       utils.plush.expenses.list.invalidate();
-      
+
       // Reset form
       setFormData({
         merchant: "",
@@ -320,21 +340,20 @@ export default function LogScreen() {
       >
         <View className="gap-6 pb-8">
           {/* HEADER */}
-          <View className="px-6 pt-2">
+          <View style={{ paddingHorizontal: 24, paddingTop: 8 }}>
             <Text
-              className="text-2xl font-bold text-foreground"
-              style={{ fontFamily: "PlayfairDisplay_700Bold" }}
+              style={{ fontSize: 24, fontWeight: "bold", color: "#1A1A1A", fontFamily: "PlayfairDisplay_700Bold" }}
             >
               Log with AI ✨
             </Text>
-            <Text className="text-sm text-muted mt-1">
+            <Text style={{ fontSize: 14, color: "#666666", marginTop: 4 }}>
               Choose how to log your expense
             </Text>
           </View>
 
           {/* ENTRY MODE SELECTOR - 2x2 GRID */}
-          <View className="px-6 gap-2">
-            <View className="flex-row gap-2">
+          <View style={{ paddingHorizontal: 24, gap: 16, marginTop: 16, width: "100%" }}>
+            <View style={{ flexDirection: "row", gap: 16, width: "100%" }}>
               {ENTRY_MODES.slice(0, 2).map((mode) => {
                 const isLocked =
                   (mode.tier === "ai" && userTier !== "ai") ||
@@ -345,20 +364,41 @@ export default function LogScreen() {
                   <AnimatedPressable
                     key={mode.id}
                     onPress={() => handleModePress(mode.id)}
-                    className="flex flex-col flex-1 rounded-2xl p-4 items-center justify-center gap-1 relative shadow-sm"
                     style={{
-                      backgroundColor: isLocked ? BLUSH_PINK : (isModeActive && mode.id === "voice" && isRecording ? "#B76E79" : mode.color),
-                      opacity: isLocked ? 0.4 : 1, // Slightly more translucent for locked look
+                      flex: 1,
+                      flexDirection: "column",
+                      borderRadius: 16,
+                      padding: 16,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: isModeActive && mode.id === "voice" && isRecording
+                          ? "#B76E79"
+                          : mode.color,
+                      opacity: isLocked ? 0.45 : 1,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.05,
+                      shadowRadius: 2,
+                      elevation: 1,
+                      gap: 4
                     }}
                   >
-                    <Text className="text-3xl mb-1">
+                    <Text style={{ fontSize: 32, marginBottom: 4 }}>
                       {mode.id === "voice" && isRecording ? "⏹️" : mode.icon}
                     </Text>
-                    <Text className="text-sm font-bold text-foreground text-center">
-                      {mode.id === "voice" && isRecording ? "Recording..." : mode.name}
+                    <Text 
+                      style={{ fontSize: 14, fontWeight: "bold", textAlign: "center", color: DEEP_PLUM }}
+                    >
+                      {mode.id === "voice" && isRecording
+                        ? "Recording..."
+                        : mode.name}
                     </Text>
-                    <Text className="text-[10px] text-muted text-center leading-tight">
-                      {mode.id === "voice" && isRecording ? "Tap to stop" : mode.description}
+                    <Text 
+                      style={{ fontSize: 10, textAlign: "center", color: DEEP_PLUM, opacity: 0.5, lineHeight: 14 }}
+                    >
+                      {mode.id === "voice" && isRecording
+                        ? "Tap to stop"
+                        : mode.description}
                     </Text>
 
                     {isLocked && (
@@ -375,7 +415,7 @@ export default function LogScreen() {
               })}
             </View>
 
-            <View className="flex-row gap-2">
+            <View style={{ flexDirection: "row", gap: 16, width: "100%" }}>
               {ENTRY_MODES.slice(2, 4).map((mode) => {
                 const isLocked =
                   (mode.tier === "ai" && userTier !== "ai") ||
@@ -385,17 +425,32 @@ export default function LogScreen() {
                   <AnimatedPressable
                     key={mode.id}
                     onPress={() => handleModePress(mode.id)}
-                    className="flex flex-col flex-1 rounded-2xl p-4 items-center justify-center gap-1 relative shadow-sm"
                     style={{
-                      backgroundColor: isLocked ? BLUSH_PINK : mode.color,
-                      opacity: isLocked ? 0.4 : 1,
+                      flex: 1,
+                      flexDirection: "column",
+                      borderRadius: 16,
+                      padding: 16,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: mode.color,
+                      opacity: isLocked ? 0.45 : 1,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.05,
+                      shadowRadius: 2,
+                      elevation: 1,
+                      gap: 4
                     }}
                   >
-                    <Text className="text-3xl mb-1">{mode.icon}</Text>
-                    <Text className="text-sm font-bold text-foreground text-center">
+                    <Text style={{ fontSize: 32, marginBottom: 4 }}>{mode.icon}</Text>
+                    <Text 
+                      style={{ fontSize: 14, fontWeight: "bold", textAlign: "center", color: DEEP_PLUM }}
+                    >
                       {mode.name}
                     </Text>
-                    <Text className="text-[10px] text-muted text-center leading-tight">
+                    <Text 
+                      style={{ fontSize: 10, textAlign: "center", color: DEEP_PLUM, opacity: 0.5, lineHeight: 14 }}
+                    >
                       {mode.description}
                     </Text>
 
@@ -451,7 +506,9 @@ export default function LogScreen() {
                         end={{ x: 1, y: 1 }}
                         className="px-3 py-2 rounded-lg items-center justify-center"
                       >
-                        <Text className="text-white font-bold text-xs">✨ Magic</Text>
+                        <Text className="text-white font-bold text-xs">
+                          ✨ Magic
+                        </Text>
                       </LinearGradient>
                     </Pressable>
                   )}
@@ -479,7 +536,14 @@ export default function LogScreen() {
                 </View>
                 {/* #11 — Warm amount error */}
                 {amountError ? (
-                  <Text style={{ color: "#B76E79", fontSize: 12, marginTop: 4, fontFamily: "DMSans_400Regular" }}>
+                  <Text
+                    style={{
+                      color: "#B76E79",
+                      fontSize: 12,
+                      marginTop: 4,
+                      fontFamily: "DMSans_400Regular",
+                    }}
+                  >
                     {amountError}
                   </Text>
                 ) : null}
@@ -490,7 +554,7 @@ export default function LogScreen() {
                 <Text className="text-sm font-semibold text-foreground mb-1">
                   Category
                 </Text>
-                <Pressable 
+                <Pressable
                   onPress={() => setShowCategoryDropdown(true)}
                   className="bg-surface rounded-lg px-4 py-2 flex-row items-center justify-between"
                   style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
@@ -533,7 +597,9 @@ export default function LogScreen() {
                         overflow: "hidden",
                         opacity: pressed ? 0.8 : 1,
                         backgroundColor:
-                          formData.type === type ? "transparent" : colors.surface,
+                          formData.type === type
+                            ? "transparent"
+                            : colors.surface,
                       })}
                     >
                       {formData.type === type ? (
@@ -578,18 +644,23 @@ export default function LogScreen() {
               <Pressable
                 onPress={handleConfirmEntry}
                 className="mt-2"
-                style={({ pressed }) => ({ 
+                style={({ pressed }) => ({
                   opacity: pressed ? 0.8 : 1,
                   height: 52,
                   borderRadius: 16,
-                  overflow: "hidden"
+                  overflow: "hidden",
                 })}
               >
                 <LinearGradient
                   colors={PLUSH_GRADIENT}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   <Text className="text-white font-bold">Log Entry</Text>
                 </LinearGradient>
@@ -667,21 +738,31 @@ export default function LogScreen() {
 
       {/* CATEGORY DROPDOWN MODAL */}
       <Modal visible={showCategoryDropdown} transparent animationType="slide">
-        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <View 
-            style={{ backgroundColor: colors.background }} 
+        <View
+          className="flex-1 justify-end"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <View
+            style={{ backgroundColor: colors.background }}
             className="rounded-t-3xl p-6 max-h-[80%]"
           >
             <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-bold text-foreground" style={{ fontFamily: "PlayfairDisplay_700Bold" }}>
+              <Text
+                className="text-xl font-bold text-foreground"
+                style={{ fontFamily: "PlayfairDisplay_700Bold" }}
+              >
                 Select Category
               </Text>
               <Pressable onPress={() => setShowCategoryDropdown(false)}>
-                <MaterialIcons name="close" size={24} color={colors.foreground} />
+                <MaterialIcons
+                  name="close"
+                  size={24}
+                  color={colors.foreground}
+                />
               </Pressable>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {CATEGORIES.map(cat => (
+              {CATEGORIES.map((cat) => (
                 <Pressable
                   key={cat}
                   onPress={() => {
@@ -691,10 +772,18 @@ export default function LogScreen() {
                   }}
                   className="flex-row items-center gap-3 py-4 border-b border-border"
                 >
-                  <Text className="text-2xl">{CATEGORY_ICONS[cat] || "📌"}</Text>
-                  <Text className="text-base text-foreground font-semibold flex-1">{cat}</Text>
+                  <Text className="text-2xl">
+                    {CATEGORY_ICONS[cat] || "📌"}
+                  </Text>
+                  <Text className="text-base text-foreground font-semibold flex-1">
+                    {cat}
+                  </Text>
                   {formData.category === cat && (
-                    <MaterialIcons name="check" size={20} color={colors.primary} />
+                    <MaterialIcons
+                      name="check"
+                      size={20}
+                      color={colors.primary}
+                    />
                   )}
                 </Pressable>
               ))}
@@ -754,7 +843,7 @@ export default function LogScreen() {
                 {/* CATEGORY */}
                 <View>
                   <Text className="text-xs text-muted mb-1">Category</Text>
-                  <Pressable 
+                  <Pressable
                     onPress={() => setShowCategoryDropdown(true)}
                     className="bg-surface rounded-lg px-4 py-3 flex-row items-center justify-between"
                   >
@@ -766,7 +855,11 @@ export default function LogScreen() {
                         {formData.category}
                       </Text>
                     </View>
-                    <MaterialIcons name="expand-more" size={20} color={colors.muted} />
+                    <MaterialIcons
+                      name="expand-more"
+                      size={20}
+                      color={colors.muted}
+                    />
                   </Pressable>
                 </View>
 
@@ -789,25 +882,34 @@ export default function LogScreen() {
                   className="flex-1 border border-border rounded-2xl py-0 items-center justify-center"
                   style={{ height: 52, borderRadius: 16 }}
                 >
-                  <Text className="text-foreground font-bold">Edit Details</Text>
+                  <Text className="text-foreground font-bold">
+                    Edit Details
+                  </Text>
                 </Pressable>
                 <Pressable
                   onPress={handleConfirmEntry}
                   className="flex-1 rounded-2xl"
-                  style={({ pressed }) => ({ 
+                  style={({ pressed }) => ({
                     opacity: pressed ? 0.8 : 1,
                     height: 52,
                     borderRadius: 16,
-                    overflow: "hidden"
+                    overflow: "hidden",
                   })}
                 >
                   <LinearGradient
                     colors={PLUSH_GRADIENT}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
-                    <Text className="text-white font-bold">Log to Plush ✨</Text>
+                    <Text className="text-white font-bold">
+                      Log to Plush ✨
+                    </Text>
                   </LinearGradient>
                 </Pressable>
               </View>
@@ -838,12 +940,15 @@ export default function LogScreen() {
               <View className="bg-primary/5 rounded-2xl p-6 border border-primary/20 items-center gap-4">
                 <Text className="text-4xl">✨</Text>
                 <View className="items-center">
-                  <Text className="text-lg font-bold text-foreground">Unlock Plush AI</Text>
+                  <Text className="text-lg font-bold text-foreground">
+                    Unlock Plush AI
+                  </Text>
                   <Text className="text-sm text-muted text-center mt-1 px-4">
-                    Get access to Screenshot Scanning, Voice Logging, and unlimited AI analysis.
+                    Get access to Screenshot Scanning, Voice Logging, and
+                    unlimited AI analysis.
                   </Text>
                 </View>
-                
+
                 <Pressable
                   onPress={handleUpgradeTap}
                   className="w-full rounded-2xl overflow-hidden"
@@ -853,9 +958,16 @@ export default function LogScreen() {
                     colors={PLUSH_GRADIENT}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
-                    <Text className="text-white font-bold text-base">View Plans 🌸</Text>
+                    <Text className="text-white font-bold text-base">
+                      View Plans 🌸
+                    </Text>
                   </LinearGradient>
                 </Pressable>
               </View>

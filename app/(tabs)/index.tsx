@@ -6,6 +6,7 @@ import {
   FlatList,
   Animated,
   Easing,
+  Platform,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -18,6 +19,7 @@ import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { GradientAvatar, PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
 import { trpc } from "@/lib/trpc";
+import * as Auth from "@/lib/_core/auth";
 
 // ─── Brand colours ───────────────────────────────────────────────
 const ROSE_GOLD = "#B76E79";
@@ -25,13 +27,7 @@ const DEEP_PLUM = "#4A1560";
 const CREAM = "#FAF5EF";
 const BLUSH_PINK = "#F4B8C1";
 
-// ─── Mock data ───────────────────────────────────────────────────
-const MOCK_INCOME = 320000;
-const MOCK_SPENT = 180000;
-const MOCK_SAVED = 140000;
-const MOCK_PLUSH_SCORE = 74; // renamed from savings % for clarity
-const MOCK_SAFE_TO_SPEND = 45000;
-const MOCK_ALLOWANCE = 60000;
+// ─── Mock data removed - using real tRPC queries ─────────────────
 
 const AFFIRMATIONS = [
   "Your money is getting clearer, sis. Keep going. 💜",
@@ -42,19 +38,9 @@ const AFFIRMATIONS = [
   "You deserve financial peace and you're creating it. 🌿",
 ];
 
-const SPENDING_CATEGORIES = [
-  { name: "Beauty", icon: "💄", amount: 45000, percentage: 25 },
-  { name: "Food", icon: "🍽️", amount: 38000, percentage: 21 },
-  { name: "Transport", icon: "🚗", amount: 32000, percentage: 18 },
-  { name: "Ajo", icon: "💰", amount: 28000, percentage: 15 },
-];
+const SPENDING_CATEGORIES: any[] = [];
 
-// FIX 8 — Bill status config: green ≥7d, amber 3–6d, rose gold 1–2d
-const UPCOMING_BILLS = [
-  { name: "Electricity", amount: 8500, daysUntilDue: 12, status: "green" },
-  { name: "Internet", amount: 5000, daysUntilDue: 5, status: "amber" },
-  { name: "Rent", amount: 150000, daysUntilDue: 2, status: "roseGold" },
-];
+// Mock data removed - using real tRPC queries
 
 const BILL_STATUS_CONFIG = {
   green: { color: "#4CAF50", icon: "check-circle" as const, label: "On time" },
@@ -121,7 +107,7 @@ function ScoreRing({ score }: { score: number }) {
         stroke={ROSE_GOLD}
         strokeWidth={STROKE_WIDTH}
         fill="transparent"
-        strokeDasharray={CIRCUMFERENCE}
+        strokeDasharray={[CIRCUMFERENCE, CIRCUMFERENCE]}
         strokeDashoffset={offset}
         strokeLinecap="round"
         rotation="-90"
@@ -174,15 +160,61 @@ export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const { data: user } = trpc.auth.me.useQuery();
+  const [localUser, setLocalUser] = useState<Auth.User | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    Auth.getUserInfo()
+      .then((cached) => setLocalUser(cached))
+      .catch((error) => console.error("Failed to load cached user:", error));
+  }, []);
+
+  // tRPC Queries
+  const dashboardQuery = trpc.plush.analytics.dashboard.useQuery();
+  const spendingBreakdownQuery = trpc.plush.analytics.spendingBreakdown.useQuery();
+  const billsQuery = trpc.plush.bills.list.useQuery();
+  const communityQuery = trpc.plush.community.getLatestActivity.useQuery();
+
+  const stats = dashboardQuery.data || {
+    safeToSpend: 0,
+    totalSaved: 0,
+    weeklyAllowance: 0,
+    plushScore: 0,
+    income: 0,
+    spent: 0,
+    savedThisMonth: 0,
+  };
+
+  const spendingCategories = spendingBreakdownQuery.data?.map(s => {
+    const icons: Record<string, string> = {
+      Food: "🍽️",
+      Beauty: "💄",
+      Transport: "🚗",
+      Groceries: "🛒",
+      Shopping: "🛍️",
+      Utilities: "💡",
+      Rent: "🏠",
+    };
+    return {
+      name: s.category,
+      icon: icons[s.category] || "✨",
+      amount: s.amount,
+      percentage: stats.spent > 0 ? Math.round((s.amount / stats.spent) * 100) : 0,
+    };
+  }) || SPENDING_CATEGORIES;
+
+  const upcomingBills = billsQuery.data || [];
+  const latestActivity = communityQuery.data?.[0];
+
   // Use first word of the user's name, fallback to a warm default
-  const displayName = user?.name?.split(" ")[0] ?? "Queen";
+  const displayName = user?.name?.split(" ")[0] ?? localUser?.name?.split(" ")[0] ?? "Queen";
 
   const [todayRitual, setTodayRitual] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [affirmationIndex, setAffirmationIndex] = useState(0);
 
   // FIX 2 — Plush Score animate count
-  const animatedScore = useCountUp(MOCK_PLUSH_SCORE, 900);
+  const animatedScore = useCountUp(stats.plushScore || 0, 900);
 
   useEffect(() => {
     const today = new Date().getDay();
@@ -208,6 +240,17 @@ export default function HomeScreen() {
 
   const getDateString = () =>
     new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+
+  const getBillStatus = (dueDate: string) => {
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diffTime = Math.max(0, due.getTime() - today.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays >= 7) return { status: "green", days: diffDays };
+    if (diffDays >= 3) return { status: "amber", days: diffDays };
+    return { status: "roseGold", days: diffDays };
+  };
 
   return (
     <ScreenContainer className="bg-background">
@@ -315,7 +358,7 @@ export default function HomeScreen() {
 
                 {/* Hero Number */}
                 <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 23, color: "#fff", lineHeight: 28, marginBottom: 6 }}>
-                  ₦{(MOCK_SAFE_TO_SPEND / 1000).toFixed(0)}k
+                  ₦{(stats.safeToSpend / 1000).toFixed(1)}k
                 </Text>
 
                 {/* Progress Bar (Visualizing allowance left) */}
@@ -324,7 +367,7 @@ export default function HomeScreen() {
                     colors={PROGRESS_GRADIENT}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={{ width: "75%", height: "100%", borderRadius: 100 }}
+                    style={{ width: `${Math.min(100, (stats.safeToSpend / (stats.weeklyAllowance || 1)) * 100)}%`, height: "100%", borderRadius: 100 }}
                   />
                 </View>
 
@@ -332,11 +375,11 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: "row", gap: 32 }}>
                   <View>
                     <Text style={{ fontFamily: "DMSans_400Regular", color: `${CREAM}80`, fontSize: 11, marginBottom: 4 }}>Weekly Allowance</Text>
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>₦{(MOCK_ALLOWANCE / 1000).toFixed(0)}k</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>₦{(stats.weeklyAllowance / 1000).toFixed(0)}k</Text>
                   </View>
                   <View>
-                    <Text style={{ fontFamily: "DMSans_400Regular", color: `${CREAM}80`, fontSize: 11, marginBottom: 4 }}>Total Saved</Text>
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>₦{(MOCK_SAVED / 1000).toFixed(0)}k</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", color: `${CREAM}80`, fontSize: 11, marginBottom: 4 }}>Saved (This month)</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>₦{(stats.savedThisMonth / 1000).toFixed(0)}k</Text>
                   </View>
                 </View>
 
@@ -363,7 +406,6 @@ export default function HomeScreen() {
             <View
               style={{
                 flexDirection: "row",
-                backgroundColor: colors.surface,
                 borderRadius: 18,
                 padding: 4,
                 gap: 4,
@@ -421,7 +463,7 @@ export default function HomeScreen() {
               Top Spending
             </Text>
             <FlatList
-              data={SPENDING_CATEGORIES}
+              data={spendingCategories}
               horizontal
               scrollEnabled
               showsHorizontalScrollIndicator={false}
@@ -466,13 +508,17 @@ export default function HomeScreen() {
               Bills Coming Up 💸
             </Text>
             <FlatList
-              data={UPCOMING_BILLS}
+              data={upcomingBills}
               horizontal
               scrollEnabled
               showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.name}
+              keyExtractor={(item) => item.id}
+              ListEmptyComponent={() => (
+                <Text className="text-xs text-muted py-4">No bills due soon. Relax, queen! 🌸</Text>
+              )}
               renderItem={({ item }) => {
-                const cfg = BILL_STATUS_CONFIG[item.status as keyof typeof BILL_STATUS_CONFIG];
+                const { status, days } = getBillStatus(item.dueDate);
+                const cfg = BILL_STATUS_CONFIG[status as keyof typeof BILL_STATUS_CONFIG];
                 return (
                   <View
                     style={{
@@ -513,12 +559,7 @@ export default function HomeScreen() {
                       ₦{(item.amount / 1000).toFixed(0)}k
                     </Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      {/* FIX 6 — Soft custom tick for Electricity bill */}
-                      {item.name === "Electricity" ? (
-                        <SoftTick />
-                      ) : (
-                        <MaterialIcons name={cfg.icon} size={14} color={cfg.color} />
-                      )}
+                      <MaterialIcons name={cfg.icon} size={14} color={cfg.color} />
                       <Text
                         style={{
                           fontFamily: "DMSans_400Regular",
@@ -526,7 +567,7 @@ export default function HomeScreen() {
                           color: cfg.color,
                         }}
                       >
-                        {item.daysUntilDue} days
+                        {days} days
                       </Text>
                     </View>
                   </View>
@@ -542,7 +583,7 @@ export default function HomeScreen() {
               Latest from the Community 💕
             </Text>
             <Pressable
-              onPress={() => router.push("/(tabs)/community")}
+              onPress={() => router.push("/community")}
               style={{
                 backgroundColor: CREAM,
                 borderRadius: 16,
@@ -556,25 +597,31 @@ export default function HomeScreen() {
                 elevation: 1,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <GradientAvatar name="Sarah Williams" size={28} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 13, color: DEEP_PLUM }}>
-                    Sarah W.
+              {latestActivity ? (
+                <>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <GradientAvatar name={latestActivity.userName || "Sister"} size={28} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 13, color: DEEP_PLUM }}>
+                        {latestActivity.userName}
+                      </Text>
+                      <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 11, color: `${DEEP_PLUM}80` }}>
+                        {new Date(latestActivity.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: `${ROSE_GOLD}20`, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
+                      <Text style={{ fontSize: 10, fontFamily: "DMSans_700Bold", color: ROSE_GOLD, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        {latestActivity.postType} 🎉
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: DEEP_PLUM, lineHeight: 20 }}>
+                    "{latestActivity.content}"
                   </Text>
-                  <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 11, color: `${DEEP_PLUM}80` }}>
-                    2h ago
-                  </Text>
-                </View>
-                <View style={{ backgroundColor: `${ROSE_GOLD}20`, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
-                  <Text style={{ fontSize: 10, fontFamily: "DMSans_700Bold", color: ROSE_GOLD, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                    Goal Met 🎉
-                  </Text>
-                </View>
-              </View>
-              <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: DEEP_PLUM, lineHeight: 20 }}>
-                "Just hit my first 100k milestone for the Detty December fund! Consistently prioritizing my peace of mind! Soft life pending..."
-              </Text>
+                </>
+              ) : (
+                <Text className="text-xs text-muted text-center py-2">Join the conversation with your sisters! 🌸</Text>
+              )}
             </Pressable>
           </View>
         </View>
