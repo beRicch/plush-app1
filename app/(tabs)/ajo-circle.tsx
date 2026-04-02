@@ -13,7 +13,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { cn } from "@/lib/utils";
+import { cn, formatNaira } from "@/lib/utils";
 import { useSubscription } from "@/lib/revenuecat";
 import { PremiumGate } from "@/components/premium-gate";
 import { PlushCelebration } from "@/components/plush-celebration";
@@ -24,6 +24,7 @@ import { trpc } from "@/lib/trpc";
 import { PlushBottomSheet } from "@/components/plush-bottom-sheet";
 import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
+import { useTabBarVisibility } from "@/lib/tab-bar-visibility";
 
 // Brand colours
 const ROSE_GOLD = "#B76E79";
@@ -75,6 +76,13 @@ export default function AjoCircleScreen() {
   const minCircleMembers = 2;
   const maxCircleMembers = 20;
   const memberCount = Math.max(minCircleMembers, Math.min(maxCircleMembers, Number(maxMembers) || minCircleMembers));
+
+  // Hide tab bar when Ajo chat is open
+  const { setTabBarHidden } = useTabBarVisibility();
+  useEffect(() => {
+    setTabBarHidden(showChat);
+    return () => setTabBarHidden(false);
+  }, [showChat]);
 
   const formatIsoDate = (date: Date) => date.toISOString().slice(0, 10);
   const getDateOnly = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -445,7 +453,7 @@ export default function AjoCircleScreen() {
                         <View>
                           <Text className="text-xs text-muted mb-1">Per Round</Text>
                           <Text className="text-sm font-bold text-foreground">
-                            ₦{(circle.contributionAmount / 1000).toFixed(0)}k
+                            {formatNaira(circle.contributionAmount)}
                           </Text>
                         </View>
                         <View>

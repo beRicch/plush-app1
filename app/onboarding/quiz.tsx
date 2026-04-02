@@ -253,6 +253,8 @@ export default function QuizScreen() {
             incomeFrequency: nextAnswers[4],
             weeklyCap: nextAnswers[7],
             targetGoalValue: nextAnswers[8],
+            monthlySavingsTarget: Number(plan.monthlyTarget),
+            weeklyAllowance: Number(plan.allowance),
           }));
         } catch (e) {
           console.warn("Failed to save pending onboarding data", e);
@@ -278,6 +280,8 @@ export default function QuizScreen() {
           incomeFrequency: selectedAnswers[4],
           weeklyCap: selectedAnswers[7],
           targetGoalValue: selectedAnswers[8],
+          monthlySavingsTarget: Number(plan.monthlyTarget),
+          weeklyAllowance: Number(plan.allowance),
         }));
       } catch (e) {
         console.warn("Failed to save pending onboarding data", e);

@@ -7,6 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Modal, Pressable, Text, View, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useIsFocused } from "@react-navigation/native";
+import { HAS_COMPLETED_ONBOARDING_KEY } from "@/constants/oauth";
 
 interface TooltipProps {
   /** Unique key stored in AsyncStorage so the tooltip is only shown once */
@@ -92,18 +94,35 @@ export function Tooltip({
 // ─────────────────────────────────────────
 export function useFirstTimeTooltip(storageKey: string) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const isFocused = useIsFocused();
 
   useEffect(() => {
+    if (!isFocused) {
+      setShowTooltip(false);
+      return;
+    }
+
     const check = async () => {
       try {
-        const seen = await AsyncStorage.getItem(`tooltip_seen_${storageKey}`);
-        if (!seen) setShowTooltip(true);
+        const [seen, onboardingDone] = await Promise.all([
+          AsyncStorage.getItem(`tooltip_seen_${storageKey}`),
+          AsyncStorage.getItem(HAS_COMPLETED_ONBOARDING_KEY)
+        ]);
+
+        // Only show if never seen AND onboarding is complete
+        if (!seen && onboardingDone === "true") {
+          // Add a 600ms delay to ensure transitions/splash are gone
+          const timer = setTimeout(() => {
+            setShowTooltip(true);
+          }, 600);
+          return () => clearTimeout(timer);
+        }
       } catch {
         // silently fail
       }
     };
     check();
-  }, [storageKey]);
+  }, [storageKey, isFocused]);
 
   const dismiss = useCallback(async () => {
     setShowTooltip(false);

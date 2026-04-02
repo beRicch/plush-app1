@@ -1,12 +1,21 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useEffect } from "react";
 
 export default function GoalCelebrationScreen() {
   const colors = useColors();
   const router = useRouter();
   const { goalName } = useLocalSearchParams() as { goalName?: string };
+
+  // Auto-redirect to goals page after 2.5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.replace("/goals");
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <ScreenContainer className="bg-background">
@@ -32,14 +41,12 @@ export default function GoalCelebrationScreen() {
           <Text className="text-sm text-muted text-center">
             Your Plush is holding space for {goalName ?? "this goal"}. Now let's fill it.
           </Text>
-
-          <Pressable
-            onPress={() => router.back()}
-            className="mt-4 rounded-full py-4 items-center"
-            style={{ backgroundColor: "#B76E79" }}
+          <Text
+            className="text-xs text-muted text-center"
+            style={{ fontFamily: "DancingScript_400Regular", fontSize: 13 }}
           >
-            <Text className="text-white font-bold">Back to Goals</Text>
-          </Pressable>
+            Taking you to your goals in a moment... ✨
+          </Text>
         </View>
       </View>
     </ScreenContainer>

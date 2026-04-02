@@ -703,6 +703,15 @@ export async function createBill(data: {
   return newBill;
 }
 
+function getStartOfWeek() {
+  const now = new Date();
+  const day = now.getDay(); // 0 is Sunday, 1 is Monday, ...
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
+  const start = new Date(now.setDate(diff));
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
 /**
  * Dashboard & Analytics
  */
@@ -723,23 +732,31 @@ export async function getDashboardStats(userId: number) {
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const userExpenses = await db.select().from(expenses).where(eq(expenses.userId, userId));
   const userGoals = await db.select().from(savingsGoals).where(eq(savingsGoals.userId, userId));
-  const userDeposits = await db.select().from(savingsDeposits).where(eq(savingsDeposits.userId, userId));
-  const userBills = await db.select().from(bills).where(eq(bills.userId, userId));
+  
+  // 1. Total Saved = Sum of currentAmount across all active savings goals
+  const totalSaved = userGoals.reduce((sum, g) => sum + g.currentAmount, 0);
+  
+  // 2. Weekly Allowance = stored in user profile (synced from onboarding)
+  const weeklyAllowance = user?.weeklyAllowance || 60000; // Default fallback
+  
+  // 3. Spent This Week = Sum of expenses from Monday to now
+  const startOfWeek = getStartOfWeek();
+  const spentThisWeek = userExpenses
+    .filter(e => {
+      if (e.type !== "expense") return false;
+      const d = new Date(e.date);
+      return d >= startOfWeek;
+    })
+    .reduce((sum, e) => sum + e.amount, 0);
 
-  const totalSavedAllTime = userGoals.reduce((sum, g) => sum + g.currentAmount, 0);
-  
-  // Calculate Monthly Income from range
-  const incomeMap: Record<string, number> = {
-    A: 75000,
-    B: 175000,
-    C: 375000,
-    D: 750000,
-  };
-  const monthlyIncome = incomeMap[user?.monthlyIncomeRange || "C"] || 300000;
-  
+  // 4. Safe to Spend This Week = Weekly Allowance - Total Spent This Week
+  const safeToSpend = Math.max(0, weeklyAllowance - spentThisWeek);
+
+  const plushScore = await calculatePlushScore(userId);
+
+  // For monthly context
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-
   const spentThisMonth = userExpenses
     .filter(e => {
       if (e.type !== "expense") return false;
@@ -748,39 +765,17 @@ export async function getDashboardStats(userId: number) {
     })
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const savedThisMonth = userDeposits
-    .filter(d => {
-      const date = new Date(d.date);
-      return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-    })
-    .reduce((sum, d) => sum + d.amount, 0);
-
-  const monthlyBills = userBills.reduce((sum, b) => sum + b.amount, 0);
-
-  // Weekly calculations
-  const weeklyAllocationFromIncome = monthlyIncome / 4;
-  const weeklyBills = monthlyBills / 4;
-  const weeklySafeBase = Math.max(0, weeklyAllocationFromIncome - weeklyBills);
-  
-  // User's preferred weekly cap from onboarding
-  const weeklyCapValue = user?.weeklyCap || weeklySafeBase;
-
-  // Actual safe to spend for the week
-  // Logic: (Monthly Income - Monthly Savings - Monthly Bills - Actual Spent This Month) / remaining weeks
-  const remainingInMonth = Math.max(0, monthlyIncome - savedThisMonth - monthlyBills - spentThisMonth);
-  const weeksLeft = Math.max(1, 4 - (new Date().getDate() / 7));
-  const calculatedWeeklySafe = remainingInMonth / weeksLeft;
-
-  const plushScore = await calculatePlushScore(userId);
+  const incomeMap: Record<string, number> = { A: 75000, B: 175000, C: 375000, D: 750000 };
+  const monthlyIncome = incomeMap[user?.monthlyIncomeRange || "C"] || 300000;
 
   return {
-    safeToSpend: Math.min(calculatedWeeklySafe, weeklyCapValue),
-    totalSaved: totalSavedAllTime,
-    savedThisMonth: savedThisMonth,
-    weeklyAllowance: weeklyCapValue,
+    safeToSpend,
+    totalSaved,
+    weeklyAllowance,
     plushScore,
     income: monthlyIncome,
     spent: spentThisMonth,
+    spentThisWeek,
   };
 }
 

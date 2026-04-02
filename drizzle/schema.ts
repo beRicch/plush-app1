@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   monthlyIncomeRange: varchar("monthlyIncomeRange", { length: 50 }),
   incomeFrequency: varchar("incomeFrequency", { length: 20 }),
   weeklyCap: integer("weeklyCap"),
+  monthlySavingsTarget: integer("monthlySavingsTarget"),
+  weeklyAllowance: integer("weeklyAllowance"),
   subscriptionTier: subscriptionTierEnum("subscriptionTier").default("free").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),

@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useSubscription } from "@/lib/revenuecat";
@@ -17,6 +17,8 @@ import { Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
 import { trpc } from "@/lib/trpc";
+import { formatNaira } from "@/lib/utils";
+import { useTabBarVisibility } from "@/lib/tab-bar-visibility";
 
 // Brand Colors
 const DEEP_PLUM = "#4A1560";
@@ -46,6 +48,13 @@ export default function InsightsScreen() {
   const [chatMessages, setChatMessages] = useState(CHAT_MESSAGES);
   const [chatInput, setChatInput] = useState("");
   const { isPremium, loading } = useSubscription();
+  const { setTabBarHidden } = useTabBarVisibility();
+
+  // Hide tab bar when on the Ask Plush chat tab
+  useEffect(() => {
+    setTabBarHidden(activeTab === "ask");
+    return () => setTabBarHidden(false); // restore on unmount
+  }, [activeTab]);
 
   // tRPC Queries
   const dashboardQuery = trpc.plush.analytics.dashboard.useQuery();
@@ -53,7 +62,7 @@ export default function InsightsScreen() {
   const observationsQuery = trpc.plush.analytics.aiObservations.useQuery();
   const askMutation = trpc.plush.insights.askPlush.useMutation();
 
-  const stats = dashboardQuery.data || { safeToSpend: 0, totalSaved: 0, plushScore: 0, spent: 0 };
+  const stats = dashboardQuery.data || { safeToSpend: 0, totalSaved: 0, plushScore: 0, spent: 0, income: 0, weeklyAllowance: 0, spentThisWeek: 0, savedThisMonth: 0 };
   const categories = breakdownQuery.data || [];
   const observations = observationsQuery.data || [];
 
@@ -242,7 +251,7 @@ export default function InsightsScreen() {
                     >
                       <View className="items-center">
                         <Text className="text-xl font-bold text-foreground">
-                          ₦{(stats.spent / 1000).toFixed(1)}k
+                          {formatNaira(stats.spent)}
                         </Text>
                       </View>
                     </View>
@@ -303,7 +312,7 @@ export default function InsightsScreen() {
                             </Text>
                           </View>
                           <Text className="text-xs font-bold text-foreground">
-                            ₦{cat.amount.toLocaleString()}
+                            {formatNaira(cat.amount)}
                           </Text>
                         </View>
                         <View style={{ height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden" }}>
@@ -351,72 +360,101 @@ export default function InsightsScreen() {
                 )}
               </View>
 
-              {/* MONTHLY VAULT REPORT */}
-              <View
-                className="rounded-2xl p-4 gap-3"
-                style={{ backgroundColor: colors.surface }}
-              >
-                <Text className="text-sm font-bold text-foreground">
-                  Your March Vault Report is ready 🌸
-                </Text>
-                <View className="gap-2">
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs text-muted">Income</Text>
-                    <Text className="text-xs font-bold text-foreground">₦250,000</Text>
-                  </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs text-muted">Expenses</Text>
-                    <Text className="text-xs font-bold text-foreground">₦81,000</Text>
-                  </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs text-muted">Savings</Text>
-                    <Text className="text-xs font-bold text-foreground">₦169,000</Text>
-                  </View>
-                </View>
-                <Pressable
-                  className="items-center justify-center mt-2"
-                  style={{ height: 52, borderRadius: 16, overflow: "hidden" }}
-                >
-                  <LinearGradient
-                    colors={PLUSH_GRADIENT}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{ height: 52, width: "100%", alignItems: "center", justifyContent: "center" }}
+              {/* MONTHLY VAULT REPORT - Dynamic */}
+              {(() => {
+                const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+                const monthlyIncome = stats.income || 0;
+                const monthlyExpenses = stats.spent || 0;
+                const monthlySavings = stats.savedThisMonth ?? (monthlyIncome - monthlyExpenses);
+                const hasData = monthlyIncome > 0 || monthlyExpenses > 0;
+                return (
+                  <View
+                    className="rounded-2xl p-4 gap-3"
+                    style={{ backgroundColor: colors.surface }}
                   >
-                    <Text className="text-white font-bold text-sm">Download PDF Report</Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
+                    <Text className="text-sm font-bold text-foreground">
+                      Your {currentMonth} Vault Report is ready 🌸
+                    </Text>
+                    {hasData ? (
+                      <View className="gap-2">
+                        <View className="flex-row justify-between">
+                          <Text className="text-xs text-muted">Income (est.)</Text>
+                          <Text className="text-xs font-bold text-foreground">{formatNaira(monthlyIncome)}</Text>
+                        </View>
+                        <View className="flex-row justify-between">
+                          <Text className="text-xs text-muted">Expenses</Text>
+                          <Text className="text-xs font-bold text-foreground">{formatNaira(monthlyExpenses)}</Text>
+                        </View>
+                        <View className="flex-row justify-between">
+                          <Text className="text-xs text-muted">Remaining</Text>
+                          <Text className="text-xs font-bold" style={{ color: monthlySavings >= 0 ? '#4A1560' : '#EF4444' }}>{formatNaira(Math.abs(monthlySavings))}</Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <Text className="text-xs text-muted text-center py-2">Start logging your income and expenses to see your report 🌸</Text>
+                    )}
+                    <Pressable
+                      className="items-center justify-center mt-2"
+                      style={{ height: 52, borderRadius: 16, overflow: "hidden" }}
+                    >
+                      <LinearGradient
+                        colors={PLUSH_GRADIENT}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{ height: 52, width: "100%", alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Text className="text-white font-bold text-sm">Download PDF Report</Text>
+                      </LinearGradient>
+                    </Pressable>
+                  </View>
+                );
+              })()}
 
-              {/* PREDICTIVE ALERT */}
-              <View
-                className="rounded-2xl p-4 gap-3 border-l-4"
-                style={{
-                  backgroundColor: "#F59E0B20",
-                  borderLeftColor: "#F59E0B",
-                }}
-              >
-                <Text className="text-sm font-bold" style={{ color: "#F59E0B" }}>
-                  Heads up, sis 💛
-                </Text>
-                <Text className="text-xs text-foreground">
-                  At your current pace, you'll overspend by ₦23,000 this month
-                </Text>
-                <View className="gap-2 pt-2">
-                  <Text className="text-xs font-semibold text-foreground">
-                    Here's what to do:
-                  </Text>
-                  <Text className="text-xs text-muted">
-                    1. Reduce dining out by ₦5,000 this week
-                  </Text>
-                  <Text className="text-xs text-muted">
-                    2. Skip non-essentials shopping for 2 weeks
-                  </Text>
-                  <Text className="text-xs text-muted">
-                    3. Set a daily spending cap of ₦2,500
-                  </Text>
-                </View>
-              </View>
+              {/* PREDICTIVE ALERT - Dynamic */}
+              {(() => {
+                const monthlyIncome = stats.income || 0;
+                const monthlyExpenses = stats.spent || 0;
+                const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+                const dayOfMonth = new Date().getDate();
+                const projectedSpend = dayOfMonth > 0 ? Math.round((monthlyExpenses / dayOfMonth) * daysInMonth) : 0;
+                const projectedOverspend = projectedSpend - monthlyIncome;
+                const isOnTrack = projectedOverspend <= 0 || monthlyIncome === 0;
+                const dailyCap = Math.max(0, Math.round((monthlyIncome - monthlyExpenses) / Math.max(1, daysInMonth - dayOfMonth)));
+
+                if (isOnTrack) return null; // Don't show alert if on track
+                return (
+                  <View
+                    className="rounded-2xl p-4 gap-3 border-l-4"
+                    style={{
+                      backgroundColor: "#F59E0B20",
+                      borderLeftColor: "#F59E0B",
+                    }}
+                  >
+                    <Text className="text-sm font-bold" style={{ color: "#F59E0B" }}>
+                      Heads up, sis 💛
+                    </Text>
+                    <Text className="text-xs text-foreground">
+                      At your current pace, you'll overspend by {formatNaira(projectedOverspend)} this month
+                    </Text>
+                    <View className="gap-2 pt-2">
+                      <Text className="text-xs font-semibold text-foreground">
+                        Here's what to do:
+                      </Text>
+                      <Text className="text-xs text-muted">
+                        1. Reduce dining out this week to stay on budget
+                      </Text>
+                      <Text className="text-xs text-muted">
+                        2. Skip non-essential shopping for 2 weeks
+                      </Text>
+                      {dailyCap > 0 && (
+                        <Text className="text-xs text-muted">
+                          3. Set a daily spending cap of {formatNaira(dailyCap)}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })()}
             </View>
           </ScrollView>
         )}

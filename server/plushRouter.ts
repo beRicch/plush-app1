@@ -463,6 +463,8 @@ export const plushRouter = router({
           monthlyIncomeRange: z.string().optional(),
           incomeFrequency: z.string().optional(),
           weeklyCap: z.number().optional(),
+          monthlySavingsTarget: z.number().optional(),
+          weeklyAllowance: z.number().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {

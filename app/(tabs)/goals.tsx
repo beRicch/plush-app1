@@ -10,6 +10,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { formatNaira } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -275,15 +276,16 @@ export default function GoalsScreen() {
         const rawOnboarding = await AsyncStorage.getItem("plush_pending_onboarding");
         if (rawOnboarding) {
           const onboardingData = JSON.parse(rawOnboarding);
-          if (onboardingData.targetGoalValue) {
+          const parsedTarget = Number(onboardingData.targetGoalValue);
+          if (onboardingData.targetGoalValue && !isNaN(parsedTarget) && parsedTarget > 0) {
             const onboardingGoalId = `onboarding_${user?.id || 'guest'}`;
-            const alreadyMigrated = mappedGoals.some(g => g.name === "My Onboarding Goal" || g.target === Number(onboardingData.targetGoalValue));
+            const alreadyMigrated = mappedGoals.some(g => g.name === "My Onboarding Goal" || g.target === parsedTarget);
             
             if (!alreadyMigrated) {
               const onboardingGoal: Goal = {
                 id: onboardingGoalId,
                 name: "Target Goal 🌸",
-                target: Number(onboardingData.targetGoalValue),
+                target: parsedTarget,
                 current: 0,
                 targetDate: new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString().slice(0, 10),
                 monthlyContribution: 0,
@@ -422,7 +424,7 @@ export default function GoalsScreen() {
                     <View
                       key={goal.id}
                       className="rounded-2xl p-4 gap-3"
-                      style={{ backgroundColor: colors.surface }}
+                      style={{ backgroundColor: goal.coverColor ? `${goal.coverColor}CC` : colors.surface }}
                     >
                       {/* GOAL NAME */}
                       <Text className="text-base font-bold text-foreground">
@@ -434,13 +436,13 @@ export default function GoalsScreen() {
                         <View>
                           <Text className="text-xs text-muted mb-1">Target</Text>
                           <Text className="text-sm font-bold text-foreground">
-                            ₦{(goal.target / 1000).toFixed(0)}k
+                            {formatNaira(goal.target)}
                           </Text>
                         </View>
                         <View>
                           <Text className="text-xs text-muted mb-1">Saved</Text>
                           <Text className="text-sm font-bold text-foreground">
-                            ₦{(goal.current / 1000).toFixed(0)}k
+                            {formatNaira(goal.current)}
                           </Text>
                         </View>
                         <View className="items-center">

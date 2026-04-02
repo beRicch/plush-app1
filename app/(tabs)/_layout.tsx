@@ -5,6 +5,7 @@ import { Platform, View, TouchableOpacity, Text, StyleSheet } from "react-native
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import { PLUSH_GRADIENT } from "@/components/plush-gradient";
+import { TabBarVisibilityProvider, useTabBarVisibility } from "@/lib/tab-bar-visibility";
 
 // Plush Brand Palette
 const BLUSH_PINK = "#F4B8C1";
@@ -53,6 +54,9 @@ function ProfilePlaceholder({ isActive }: { isActive: boolean }) {
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { isTabBarHidden } = useTabBarVisibility();
+
+  if (isTabBarHidden) return null;
 
   // Tabs in the main pill: Home, Progress, Groups, Profile
   const pillRoutes = ["index", "goals", "community", "profile"];
@@ -127,7 +131,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         style={styles.plushLogButton}
         activeOpacity={0.8}
       >
-        <MaterialIcons name="auto-awesome" size={28} color="#FAF5EF" />
+        <MaterialIcons name="add" size={28} color="#FAF5EF" />
       </TouchableOpacity>
     </View>
   );
@@ -135,24 +139,26 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 
 export default function TabLayout() {
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="goals" options={{ title: "Progress" }} />
-      <Tabs.Screen name="log" options={{ title: "Log" }} />
-      <Tabs.Screen name="community" options={{ title: "Groups" }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
-      <Tabs.Screen name="ajo-circle" options={{ href: null }} />
-      <Tabs.Screen name="insights" options={{ href: null }} />
-      <Tabs.Screen name="plush-score" options={{ href: null }} />
-      <Tabs.Screen name="rituals-hub" options={{ href: null }} />
-      <Tabs.Screen name="goal-celebration" options={{ href: null }} />
-      <Tabs.Screen name="rituals" options={{ href: null }} />
-    </Tabs>
+    <TabBarVisibilityProvider>
+      <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Tabs.Screen name="index" options={{ title: "Home" }} />
+        <Tabs.Screen name="goals" options={{ title: "Progress" }} />
+        <Tabs.Screen name="log" options={{ title: "Log" }} />
+        <Tabs.Screen name="community" options={{ title: "Groups" }} />
+        <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+        <Tabs.Screen name="ajo-circle" options={{ href: null }} />
+        <Tabs.Screen name="insights" options={{ href: null }} />
+        <Tabs.Screen name="plush-score" options={{ href: null }} />
+        <Tabs.Screen name="rituals-hub" options={{ href: null }} />
+        <Tabs.Screen name="goal-celebration" options={{ href: null }} />
+        <Tabs.Screen name="rituals" options={{ href: null }} />
+      </Tabs>
+    </TabBarVisibilityProvider>
   );
 }
 

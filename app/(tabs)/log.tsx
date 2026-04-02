@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { formatNaira } from "@/lib/utils";
 import { useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -705,8 +706,8 @@ export default function LogScreen() {
                     </View>
                   </View>
                   <View className="items-end">
-                    <Text className="text-sm font-bold text-foreground">
-                      ₦{(entry.amount / 1000).toFixed(1)}k
+                    <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 15, color: DEEP_PLUM }}>
+                      {formatNaira(entry.amount)}
                     </Text>
                     <Text className="text-xs text-muted">{entry.category}</Text>
                   </View>

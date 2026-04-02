@@ -232,6 +232,8 @@ export default function AuthScreen() {
             monthlyIncomeRange: parsed.monthlyIncomeRange,
             incomeFrequency: parsed.incomeFrequency,
             weeklyCap: weeklyCapMap[parsed.weeklyCap as keyof typeof weeklyCapMap] ?? 50000,
+            monthlySavingsTarget: parsed.monthlySavingsTarget,
+            weeklyAllowance: parsed.weeklyAllowance,
           });
           // Clear after successful sync
           await AsyncStorage.removeItem("plush_pending_onboarding");

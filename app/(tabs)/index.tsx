@@ -15,6 +15,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useState, useEffect, useRef } from "react";
 import { AnimatedPressable, useCountUp, Toast } from "@/components/plush-animations";
 import { TooltipModal } from "@/components/plush-tooltip";
+import { cn, formatNaira, getArchetypeAffirmation } from "@/lib/utils";
 import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { GradientAvatar, PLUSH_GRADIENT, PROGRESS_GRADIENT } from "@/components/plush-gradient";
@@ -358,28 +359,40 @@ export default function HomeScreen() {
 
                 {/* Hero Number */}
                 <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 23, color: "#fff", lineHeight: 28, marginBottom: 6 }}>
-                  ₦{(stats.safeToSpend / 1000).toFixed(1)}k
+                  {formatNaira(stats.safeToSpend)}
                 </Text>
 
-                {/* Progress Bar (Visualizing allowance left) */}
-                <View style={{ marginTop: 8, marginBottom: 20, height: 6, backgroundColor: `${CREAM}4D`, borderRadius: 100, overflow: "hidden" }}>
+                {/* Progress Bar (Visualizing spent vs allowance) */}
+                <View style={{ marginTop: 8, marginBottom: 12, height: 6, backgroundColor: "rgba(250, 245, 239, 0.3)", borderRadius: 100, overflow: "hidden" }}>
                   <LinearGradient
                     colors={PROGRESS_GRADIENT}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={{ width: `${Math.min(100, (stats.safeToSpend / (stats.weeklyAllowance || 1)) * 100)}%`, height: "100%", borderRadius: 100 }}
+                    style={{ width: `${Math.min(100, (stats.spentThisWeek / (stats.weeklyAllowance || 1)) * 100)}%`, height: "100%", borderRadius: 100 }}
                   />
                 </View>
+
+                {/* Overspend Indicator */}
+                {stats.spentThisWeek > stats.weeklyAllowance && (
+                  <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 11, color: "#F59E0B", marginBottom: 12, textAlign: "center" }}>
+                    You've reached your weekly allowance. 💜
+                  </Text>
+                )}
+                {stats.spentThisWeek > stats.weeklyAllowance * 0.8 && stats.spentThisWeek <= stats.weeklyAllowance && (
+                   <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 11, color: "#F59E0B", marginBottom: 12, textAlign: "center" }}>
+                    Careful, queen! Almost at your limit. ✨
+                  </Text>
+                )}
 
                 {/* Secondary stats */}
                 <View style={{ flexDirection: "row", gap: 32 }}>
                   <View>
                     <Text style={{ fontFamily: "DMSans_400Regular", color: `${CREAM}80`, fontSize: 11, marginBottom: 4 }}>Weekly Allowance</Text>
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>₦{(stats.weeklyAllowance / 1000).toFixed(0)}k</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>{formatNaira(stats.weeklyAllowance)}</Text>
                   </View>
                   <View>
                     <Text style={{ fontFamily: "DMSans_400Regular", color: `${CREAM}80`, fontSize: 11, marginBottom: 4 }}>Saved (This month)</Text>
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>₦{((stats.savedThisMonth ?? 0) / 1000).toFixed(0)}k</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>{formatNaira(stats.savedThisMonth ?? 0)}</Text>
                   </View>
                 </View>
 
@@ -395,7 +408,7 @@ export default function HomeScreen() {
                     fontStyle: "italic",
                   }}
                 >
-                  "You deserve financial peace and you're creating it. 🌸"
+                  "{getArchetypeAffirmation(user?.moneyPersonality)}"
                 </Text>
               </View>
             </LinearGradient>
@@ -493,7 +506,7 @@ export default function HomeScreen() {
                     {item.name}
                   </Text>
                   <Text style={{ fontFamily: "DMSans_700Bold", fontSize: 15, color: DEEP_PLUM }}>
-                    ₦{(item.amount / 1000).toFixed(0)}k
+                    {formatNaira(item.amount)}
                   </Text>
                   <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 11, color: ROSE_GOLD }}>
                     {item.percentage}%
@@ -558,7 +571,7 @@ export default function HomeScreen() {
                         marginBottom: 8,
                       }}
                     >
-                      ₦{(item.amount / 1000).toFixed(0)}k
+                      {formatNaira(item.amount)}
                     </Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                       <MaterialIcons name={cfg.icon} size={14} color={cfg.color} />
