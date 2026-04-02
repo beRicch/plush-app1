@@ -25,7 +25,7 @@ export function PremiumGate({ children, isPremium, onUnlock }: PremiumGateProps)
   return (
     <View style={styles.container}>
       <View style={styles.content}>{children}</View>
-      <Animated.View 
+      <Animated.View
         entering={FadeIn}
         style={[styles.overlay, { backgroundColor: 'rgba(250, 245, 239, 0.95)' }]}
       >
@@ -33,9 +33,9 @@ export function PremiumGate({ children, isPremium, onUnlock }: PremiumGateProps)
           <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center">
             <MaterialIcons name="lock" size={40} color={colors.primary} />
           </View>
-          
+
           <View className="gap-2 items-center">
-            <Text 
+            <Text
               className="text-2xl font-bold text-foreground text-center"
               style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
             >
@@ -52,7 +52,7 @@ export function PremiumGate({ children, isPremium, onUnlock }: PremiumGateProps)
           >
             <Text className="text-white font-bold">Start 7-Day Free Trial ✨</Text>
           </Pressable>
-          
+
           <Text className="text-[10px] text-muted text-center">
             Only ₦2,500/month after. Cancel anytime. 💜
           </Text>
