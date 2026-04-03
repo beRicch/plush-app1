@@ -15,7 +15,8 @@ const env = {
   appId: process.env.EXPO_PUBLIC_APP_ID ?? "",
   ownerId: process.env.EXPO_PUBLIC_OWNER_OPEN_ID ?? "",
   ownerName: process.env.EXPO_PUBLIC_OWNER_NAME ?? "",
-  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? FALLBACK_API_BASE_URL,
+  // Force Render URL to override any hardcoded local IP in the standalone build
+  apiBaseUrl: "https://plush-backend-x5dg.onrender.com",
   deepLinkScheme: schemeFromBundleId,
 };
 
