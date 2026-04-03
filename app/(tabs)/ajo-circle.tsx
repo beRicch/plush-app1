@@ -131,6 +131,11 @@ export default function AjoCircleScreen() {
   const { data: circles, isLoading: circlesLoading, error: circlesError } = trpc.plush.ajo.list.useQuery(undefined, {
     enabled: !!user,
   });
+
+  if (circlesError) {
+    console.error("Ajo circles load error:", circlesError);
+  }
+
   const createMutation = trpc.plush.ajo.create.useMutation({
     onSuccess: () => {
       utils.plush.ajo.list.invalidate();

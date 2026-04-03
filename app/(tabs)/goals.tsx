@@ -234,6 +234,10 @@ export default function GoalsScreen() {
   const { data: dbGoals, isLoading: loadingGoalsDb, error: goalsError } = trpc.plush.savings.listGoals.useQuery(undefined, {
     enabled: !!user,
   });
+
+  if (goalsError) {
+    console.error("Goals load error:", goalsError);
+  }
   
   const createGoalMutation = trpc.plush.savings.createGoal.useMutation({
     onSuccess: () => {

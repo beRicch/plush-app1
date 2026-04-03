@@ -7,13 +7,15 @@ const bundleId = "space.manus.plush.app.t20260321171044";
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
 
+const FALLBACK_API_BASE_URL = "https://plush-backend-x5dg.onrender.com";
+
 const env = {
   portal: process.env.EXPO_PUBLIC_OAUTH_PORTAL_URL ?? "",
   server: process.env.EXPO_PUBLIC_OAUTH_SERVER_URL ?? "",
   appId: process.env.EXPO_PUBLIC_APP_ID ?? "",
   ownerId: process.env.EXPO_PUBLIC_OWNER_OPEN_ID ?? "",
   ownerName: process.env.EXPO_PUBLIC_OWNER_NAME ?? "",
-  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
+  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? FALLBACK_API_BASE_URL,
   deepLinkScheme: schemeFromBundleId,
 };
 
@@ -48,8 +50,8 @@ export function getApiBaseUrl(): string {
   // If no env var, we'll try a common local IP pattern as a last resort, 
   // but ideally the user should set EXPO_PUBLIC_API_BASE_URL.
   if (ReactNative.Platform.OS !== "web") {
-    // We return a string that can be used. If it's empty, tRPC will fail gracefully.
-    return API_BASE_URL || "";
+    // We return a string that can be used. If neither env var nor a URL exists, fallback to saved backend.
+    return API_BASE_URL || FALLBACK_API_BASE_URL;
   }
 
   // Fallback to empty (will use relative URL on web)
