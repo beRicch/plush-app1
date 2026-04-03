@@ -135,6 +135,14 @@ export default function AjoCircleScreen() {
     onSuccess: () => {
       utils.plush.ajo.list.invalidate();
     },
+    onError: (error) => {
+      console.error("Failed to create Ajo circle:", error);
+      setErrorModal({
+        visible: true,
+        title: "Creation Error",
+        message: "Failed to create Ajo circle. Please try again.",
+      });
+    },
   });
   const joinMutation = trpc.plush.ajo.join.useMutation({
     onSuccess: () => {
@@ -307,6 +315,22 @@ export default function AjoCircleScreen() {
           >
             <Text className="text-white font-bold">Sign in to continue</Text>
           </LinearGradient>
+        </Pressable>
+      </ScreenContainer>
+    );
+  }
+
+  if (circlesError) {
+    return (
+      <ScreenContainer className="bg-background items-center justify-center px-6">
+        <Text className="text-center text-foreground mb-4">
+          Unable to load Ajo circles. Please check your connection and try again.
+        </Text>
+        <Pressable
+          onPress={() => utils.plush.ajo.list.invalidate()}
+          className="bg-primary rounded-lg py-3 px-6"
+        >
+          <Text className="text-white font-bold">Retry</Text>
         </Pressable>
       </ScreenContainer>
     );

@@ -148,5 +148,3 @@ const config: ExpoConfig = {
     reactCompiler: true,
   },
 };
-
-export default config;

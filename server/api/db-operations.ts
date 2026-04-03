@@ -6,7 +6,7 @@
 // Database operations - using mock data for now
 // In production, connect to real database via Drizzle ORM
 import { eq, desc, sql, and } from "drizzle-orm";
-import { getDb } from "../db.js";
+import { getDb, getDbOrThrow } from "../db.js";
 import {
   expenses,
   savingsGoals,
@@ -49,13 +49,8 @@ export async function createExpense(data: {
   notes?: string;
   aiSoftComment?: string;
 }) {
-  const db = await getDb();
+  const db = await getDbOrThrow();
   const id = crypto.randomUUID();
-  
-  if (!db) {
-    console.warn("[DB] Fallback to mock for createExpense");
-    return { id, ...data, createdAt: new Date() };
-  }
 
   const [newExpense] = await db.insert(expenses).values({
     id,
@@ -66,26 +61,7 @@ export async function createExpense(data: {
 }
 
 export async function getExpenses(userId: number, limit = 50) {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[DB] Fallback to mock for getExpenses");
-    return [
-      {
-        id: "1",
-        userId,
-        amount: 8500,
-        merchant: "Shoprite",
-        category: "Food",
-        date: new Date().toISOString().split("T")[0],
-        type: "expense",
-        entryMethod: "screenshot",
-        notes: "Weekly groceries",
-        aiSoftComment: "Great job tracking! 🌸",
-        createdAt: new Date(),
-      },
-    ];
-  }
-
+  const db = await getDbOrThrow();
   return await db.select()
     .from(expenses)
     .where(eq(expenses.userId, userId))
@@ -113,11 +89,6 @@ export async function createSavingsGoal(data: {
   const db = await getDb();
   const id = crypto.randomUUID();
 
-  if (!db) {
-    console.warn("[DB] Fallback to mock for createSavingsGoal");
-    return { id, currentAmount: data.currentAmount || 0, status: "active", ...data, createdAt: new Date() };
-  }
-
   const [newGoal] = await db.insert(savingsGoals).values({
     id,
     name: data.name,
@@ -135,24 +106,6 @@ export async function createSavingsGoal(data: {
 
 export async function getSavingsGoals(userId: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[DB] Fallback to mock for getSavingsGoals");
-    return [
-      {
-        id: "1",
-        userId,
-        name: "Emergency Fund",
-        targetAmount: 500000,
-        currentAmount: 225000,
-        targetDate: "2025-12-31",
-        coverTheme: "ocean",
-        motivationNote: "Build a 6-month safety net",
-        status: "active",
-        createdAt: new Date(),
-      },
-    ];
-  }
-
   return await db.select()
     .from(savingsGoals)
     .where(eq(savingsGoals.userId, userId))

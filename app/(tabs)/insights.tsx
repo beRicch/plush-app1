@@ -63,6 +63,7 @@ export default function InsightsScreen() {
   const askMutation = trpc.plush.insights.askPlush.useMutation();
 
   const stats = dashboardQuery.data || { safeToSpend: 0, totalSaved: 0, plushScore: 0, spent: 0, income: 0, weeklyAllowance: 0, spentThisWeek: 0, savedThisMonth: 0 };
+  const savedThisMonth = "savedThisMonth" in stats ? stats.savedThisMonth ?? 0 : 0;
   const categories = breakdownQuery.data || [];
   const observations = observationsQuery.data || [];
 
@@ -365,7 +366,7 @@ export default function InsightsScreen() {
                 const currentMonth = new Date().toLocaleString('default', { month: 'long' });
                 const monthlyIncome = stats.income || 0;
                 const monthlyExpenses = stats.spent || 0;
-                const monthlySavings = stats.savedThisMonth ?? (monthlyIncome - monthlyExpenses);
+                const monthlySavings = savedThisMonth ?? (monthlyIncome - monthlyExpenses);
                 const hasData = monthlyIncome > 0 || monthlyExpenses > 0;
                 return (
                   <View

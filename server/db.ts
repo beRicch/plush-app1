@@ -13,11 +13,26 @@ export async function getDb() {
       const client = postgres(process.env.DATABASE_URL);
       _db = drizzle(client);
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
     }
   }
+
+  if (!_db) {
+    throw new Error("Database not available. Please check DATABASE_URL environment variable.");
+  }
+
   return _db;
+}
+
+export async function getDbOrThrow() {
+  const db = await getDb();
+  if (!db) {
+    throw new Error(
+      "[Database] Database not available. Please set DATABASE_URL and verify connectivity before running this app.",
+    );
+  }
+  return db;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {

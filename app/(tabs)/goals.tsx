@@ -6,6 +6,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
@@ -230,13 +231,17 @@ export default function GoalsScreen() {
 
   // tRPC Hooks
   const utils = trpc.useUtils();
-  const { data: dbGoals, isLoading: loadingGoalsDb } = trpc.plush.savings.listGoals.useQuery(undefined, {
+  const { data: dbGoals, isLoading: loadingGoalsDb, error: goalsError } = trpc.plush.savings.listGoals.useQuery(undefined, {
     enabled: !!user,
   });
   
   const createGoalMutation = trpc.plush.savings.createGoal.useMutation({
     onSuccess: () => {
       utils.plush.savings.listGoals.invalidate();
+    },
+    onError: (error) => {
+      console.error("Failed to create goal:", error);
+      Alert.alert("Error", "Failed to create goal. Please try again.");
     },
   });
 
@@ -360,6 +365,22 @@ export default function GoalsScreen() {
     return (
       <ScreenContainer className="bg-background items-center justify-center">
         <ActivityIndicator size="large" color="#4A1560" />
+      </ScreenContainer>
+    );
+  }
+
+  if (goalsError) {
+    return (
+      <ScreenContainer className="bg-background items-center justify-center px-6">
+        <Text className="text-center text-foreground mb-4">
+          Unable to load goals. Please check your connection and try again.
+        </Text>
+        <Pressable
+          onPress={() => utils.plush.savings.listGoals.invalidate()}
+          className="bg-primary rounded-lg py-3 px-6"
+        >
+          <Text className="text-white font-bold">Retry</Text>
+        </Pressable>
       </ScreenContainer>
     );
   }

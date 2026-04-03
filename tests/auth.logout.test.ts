@@ -26,6 +26,8 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     monthlyIncomeRange: null,
     incomeFrequency: null,
     weeklyCap: null,
+    monthlySavingsTarget: 0,
+    weeklyAllowance: 0,
     subscriptionTier: "free",
     createdAt: new Date(),
     updatedAt: new Date(),

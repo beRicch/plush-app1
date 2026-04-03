@@ -6,6 +6,7 @@ import {
   Modal,
   TextInput,
   FlatList,
+  Alert,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -128,7 +129,15 @@ export default function LogScreen() {
   const parseCamera = trpc.plush.aiEntry.parseCamera.useMutation();
   const parseVoice = trpc.plush.aiEntry.parseVoice.useMutation();
   const parseText = trpc.plush.aiEntry.parseText.useMutation();
-  const createExpense = trpc.plush.expenses.create.useMutation();
+  const createExpense = trpc.plush.expenses.create.useMutation({
+    onSuccess: () => {
+      utils.plush.expenses.list.invalidate();
+    },
+    onError: (error) => {
+      console.error("Failed to create expense:", error);
+      Alert.alert("Error", "Failed to log expense. Please try again.");
+    },
+  });
 
   const expensesQuery = trpc.plush.expenses.list.useQuery();
   const recentEntries = expensesQuery.data || [];
@@ -317,6 +326,7 @@ export default function LogScreen() {
       });
     } catch (error) {
       console.error("Save Error:", error);
+      Alert.alert("Error", "Failed to save expense. Please try again.");
     } finally {
       setIsLoading(false);
     }

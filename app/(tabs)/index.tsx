@@ -183,8 +183,12 @@ export default function HomeScreen() {
     plushScore: 0,
     income: 0,
     spent: 0,
+    spentThisWeek: 0,
     savedThisMonth: 0,
   };
+
+  const spentThisWeek = "spentThisWeek" in stats ? stats.spentThisWeek ?? 0 : 0;
+  const savedThisMonth = "savedThisMonth" in stats ? stats.savedThisMonth ?? 0 : 0;
 
   const spendingCategories = spendingBreakdownQuery.data?.map(s => {
     const icons: Record<string, string> = {
@@ -368,17 +372,17 @@ export default function HomeScreen() {
                     colors={PROGRESS_GRADIENT}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={{ width: `${Math.min(100, (stats.spentThisWeek / (stats.weeklyAllowance || 1)) * 100)}%`, height: "100%", borderRadius: 100 }}
+                    style={{ width: `${Math.min(100, (spentThisWeek / (stats.weeklyAllowance || 1)) * 100)}%`, height: "100%", borderRadius: 100 }}
                   />
                 </View>
 
                 {/* Overspend Indicator */}
-                {stats.spentThisWeek > stats.weeklyAllowance && (
+                {spentThisWeek > stats.weeklyAllowance && (
                   <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 11, color: "#F59E0B", marginBottom: 12, textAlign: "center" }}>
                     You've reached your weekly allowance. 💜
                   </Text>
                 )}
-                {stats.spentThisWeek > stats.weeklyAllowance * 0.8 && stats.spentThisWeek <= stats.weeklyAllowance && (
+                {spentThisWeek > stats.weeklyAllowance * 0.8 && spentThisWeek <= stats.weeklyAllowance && (
                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 11, color: "#F59E0B", marginBottom: 12, textAlign: "center" }}>
                     Careful, queen! Almost at your limit. ✨
                   </Text>
@@ -392,7 +396,7 @@ export default function HomeScreen() {
                   </View>
                   <View>
                     <Text style={{ fontFamily: "DMSans_400Regular", color: `${CREAM}80`, fontSize: 11, marginBottom: 4 }}>Saved (This month)</Text>
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>{formatNaira(stats.savedThisMonth ?? 0)}</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: "#fff" }}>{formatNaira(savedThisMonth)}</Text>
                   </View>
                 </View>
 
