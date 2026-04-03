@@ -7,6 +7,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 
+import { ENV } from "./env";
+
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer();
@@ -74,6 +76,10 @@ async function startServer() {
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
+
+  console.log(`[api] Starting in ${ENV.isProduction ? "production" : "development"} mode`);
+  console.log(`[api] Database URL present: ${!!ENV.databaseUrl}`);
+  console.log(`[api] OAuth Server URL: ${ENV.oAuthServerUrl}`);
 
   server.listen(port, () => {
     console.log(`[api] server listening on port ${port}`);

@@ -5,7 +5,7 @@
 
 // Database operations - using mock data for now
 // In production, connect to real database via Drizzle ORM
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import { getDb, getDbOrThrow } from "../db.js";
 import {
   expenses,
@@ -525,7 +525,7 @@ export async function getAjoCircles(userId: number) {
 
   return await db.select()
     .from(ajoCircles)
-    .where(sql`${ajoCircles.id} IN (${subquery})`);
+    .where(inArray(ajoCircles.id, subquery));
 }
 
 export async function getAjoCircleDetails(circleId: string) {
