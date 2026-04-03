@@ -70,7 +70,9 @@ export async function getExpenses(userId: number, limit = 50) {
 }
 
 export async function deleteExpense(expenseId: string, userId: number) {
-  // Mock: Delete expense
+  const db = await getDbOrThrow();
+  await db.delete(expenses)
+    .where(and(eq(expenses.id, expenseId), eq(expenses.userId, userId)));
   return { success: true };
 }
 
